@@ -1,17 +1,23 @@
 <p align="center">
-  <img src="assets/securenote_githubicon.svg" width="128" alt="SecureNote Logo" />
+  <img src="assets/securenote_githubicon.svg" width="120" alt="SecureNote Logo" />
 </p>
 
 <h1 align="center">SecureNote</h1>
 
 <p align="center">
-Cross-platform application for local note-taking and peer-to-peer synchronization over a local area network (LAN).
+  Simple notes app with local Wi-Fi sync between phone and PC. No cloud needed.
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/Kotlin-7F52FF?style=for-the-badge&logo=kotlin&logoColor=white" alt="Kotlin" />
+  <img src="https://img.shields.io/badge/Compose_Multiplatform-4285F4?style=for-the-badge&logo=jetpackcompose&logoColor=white" alt="Compose Multiplatform" />
+  <img src="https://img.shields.io/badge/Android-3DDC84?style=for-the-badge&logo=android&logoColor=white" alt="Android" />
+  <img src="https://img.shields.io/badge/Windows-0078D6?style=for-the-badge&logo=windows&logoColor=white" alt="Windows" />
 </p>
 
 ## Features
 
-- **Local Storage:** Notes are stored locally on the client device without third-party cloud servers.
-- **LAN Synchronization:** Peer-to-peer data sync between devices connected to the same Wi-Fi/local network.
-- **Pairing:** Connection establishment via QR code scan.
-- **Platforms:** Android and Windows Desktop.
-- **Stack:** Kotlin Multiplatform, Compose Multiplatform, Material 3.
+- **Private:** All notes stay on your device.
+- **Wi-Fi Sync:** Sync notes between Android and Windows over your local network.
+- **Easy Connect:** Scan a QR code to link devices.
+- **No Cloud:** Works completely offline without accounts or third-party servers.
