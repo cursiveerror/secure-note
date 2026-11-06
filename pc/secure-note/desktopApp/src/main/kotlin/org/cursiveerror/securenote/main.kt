@@ -15,6 +15,22 @@ import androidx.compose.ui.window.rememberWindowState
 import java.util.UUID
 import javax.swing.SwingUtilities
 
+fun mergeTwoNotes(existing: Note, incoming: Note): Note {
+    if (existing.isDeleted || incoming.isDeleted) {
+        // If content and title are unchanged, intentional deletion wins across devices
+        if (existing.title == incoming.title && existing.content == incoming.content) {
+            val maxTs = maxOf(existing.timestamp, incoming.timestamp)
+            return (if (existing.isDeleted) existing else incoming).copy(
+                isDeleted = true,
+                timestamp = maxTs
+            )
+        }
+        // If content was edited after deletion on one side, newer timestamp wins
+        return if (incoming.timestamp > existing.timestamp) incoming else existing
+    }
+    return if (incoming.timestamp > existing.timestamp) incoming else existing
+}
+
 fun main() = application {
     val notes = remember {
         mutableStateListOf<Note>().apply {
@@ -22,6 +38,7 @@ fun main() = application {
         }
     }
 
+    var isPaired by remember { mutableStateOf(NoteRepository.isPaired()) }
     val serverIp = remember { SyncServer.getLocalIpAddress() }
 
     DisposableEffect(Unit) {
@@ -41,9 +58,7 @@ fun main() = application {
                     if (existing == null) {
                         noteMap[inc.id] = inc
                     } else {
-                        if (inc.timestamp > existing.timestamp) {
-                            noteMap[inc.id] = inc
-                        }
+                        noteMap[inc.id] = mergeTwoNotes(existing, inc)
                     }
                 }
 
@@ -51,13 +66,28 @@ fun main() = application {
                 NoteRepository.saveNotes(merged)
 
                 SwingUtilities.invokeLater {
-                    notes.clear()
-                    notes.addAll(merged)
+                    val mergedIds = merged.map { it.id }.toSet()
+                    for (m in merged) {
+                        val idx = notes.indexOfFirst { it.id == m.id }
+                        if (idx >= 0) {
+                            if (notes[idx] != m) {
+                                notes[idx] = m
+                            }
+                        } else {
+                            notes.add(m)
+                        }
+                    }
+                    notes.removeAll { it.id !in mergedIds }
                 }
 
                 merged
             },
-            getCurrentNotes = { notes.toList() }
+            getCurrentNotes = { notes.toList() },
+            onPairStatusChanged = { paired ->
+                SwingUtilities.invokeLater {
+                    isPaired = paired
+                }
+            }
         )
         server.start()
 
@@ -93,6 +123,12 @@ fun main() = application {
         DesktopApp(
             serverIp = serverIp,
             notes = notes,
+            isPaired = isPaired,
+            onUnpair = {
+                NoteRepository.setPaired(false)
+                CryptoManager.regenerateKey()
+                isPaired = false
+            },
             onAddNote = { title, content ->
                 val newNote = Note(
                     id = UUID.randomUUID().toString(),

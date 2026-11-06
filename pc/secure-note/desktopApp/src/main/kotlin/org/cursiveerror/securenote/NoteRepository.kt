@@ -10,6 +10,32 @@ object NoteRepository {
         if (!exists()) mkdirs()
     }
     private val storageFile = File(storageDir, "notes_pc.json")
+    private val pairFile = File(storageDir, "paired_client.json")
+
+    @Synchronized
+    fun isPaired(): Boolean {
+        return pairFile.exists()
+    }
+
+    @Synchronized
+    fun setPaired(paired: Boolean, clientInfo: String = "") {
+        try {
+            if (paired) {
+                val json = JSONObject().apply {
+                    put("paired", true)
+                    put("clientInfo", clientInfo)
+                    put("timestamp", System.currentTimeMillis())
+                }
+                pairFile.writeText(json.toString(), Charsets.UTF_8)
+            } else {
+                if (pairFile.exists()) {
+                    pairFile.delete()
+                }
+            }
+        } catch (e: Exception) {
+            println("Error updating paired status: ${e.message}")
+        }
+    }
 
     @Synchronized
     fun loadNotes(): List<Note> {

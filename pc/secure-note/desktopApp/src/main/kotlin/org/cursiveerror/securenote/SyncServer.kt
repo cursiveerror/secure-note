@@ -8,6 +8,7 @@ import org.json.JSONObject
 import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.Inet4Address
+import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.NetworkInterface
 import java.util.UUID
@@ -19,7 +20,8 @@ class SyncServer(
     private val httpPort: Int = 8000,
     private val udpPort: Int = 8888,
     private val onSync: (List<Note>) -> List<Note>,
-    private val getCurrentNotes: () -> List<Note>
+    private val getCurrentNotes: () -> List<Note>,
+    private val onPairStatusChanged: ((Boolean) -> Unit)? = null
 ) {
     private var httpServer: HttpServer? = null
     private var udpSocket: DatagramSocket? = null
@@ -55,7 +57,44 @@ class SyncServer(
             val syncHandler = object : HttpHandler {
                 override fun handle(exchange: HttpExchange) {
                     try {
+                        val path = exchange.requestURI.path.lowercase()
                         val method = exchange.requestMethod.uppercase()
+
+                        if (path == "/pair") {
+                            if (method == "POST") {
+                                val bodyBytes = exchange.requestBody.readBytes()
+                                val bodyText = String(bodyBytes, Charsets.UTF_8).trim()
+                                if (bodyText.isNotEmpty() && bodyText.startsWith("{") && bodyText.contains("\"iv\"")) {
+                                    val json = JSONObject(bodyText)
+                                    val iv = json.getString("iv")
+                                    val data = json.getString("data")
+                                    CryptoManager.decrypt(data, iv)
+                                }
+                                NoteRepository.setPaired(true, "Phone")
+                                onPairStatusChanged?.invoke(true)
+                                println("[SyncServer] Phone successfully paired!")
+
+                                val resp = """{"status":"ok","message":"Paired successfully"}""".toByteArray(Charsets.UTF_8)
+                                exchange.responseHeaders.set("Content-Type", "application/json; charset=utf-8")
+                                exchange.sendResponseHeaders(200, resp.size.toLong())
+                                exchange.responseBody.use { it.write(resp) }
+                                return
+                            }
+                        }
+
+                        if (path == "/unpair") {
+                            if (method == "POST") {
+                                NoteRepository.setPaired(false)
+                                onPairStatusChanged?.invoke(false)
+                                println("[SyncServer] Device unpaired.")
+                                val resp = """{"status":"ok","message":"Unpaired"}""".toByteArray(Charsets.UTF_8)
+                                exchange.responseHeaders.set("Content-Type", "application/json; charset=utf-8")
+                                exchange.sendResponseHeaders(200, resp.size.toLong())
+                                exchange.responseBody.use { it.write(resp) }
+                                return
+                            }
+                        }
+
                         if (method == "POST") {
                             val bodyBytes = exchange.requestBody.readBytes()
                             val bodyText = String(bodyBytes, Charsets.UTF_8).trim()
@@ -76,6 +115,10 @@ class SyncServer(
                             } else {
                                 JSONObject()
                             }
+
+                            // If sync succeeds with encryption, device is confirmed paired
+                            NoteRepository.setPaired(true, "Phone")
+                            onPairStatusChanged?.invoke(true)
 
                             val incomingList = mutableListOf<Note>()
                             if (finalJson.has("clientNotes")) {
@@ -193,6 +236,8 @@ class SyncServer(
             server.createContext("/", syncHandler)
             server.createContext("/sync", syncHandler)
             server.createContext("/notes", syncHandler)
+            server.createContext("/pair", syncHandler)
+            server.createContext("/unpair", syncHandler)
 
             server.start()
             httpServer = server
@@ -243,24 +288,61 @@ class SyncServer(
 
     companion object {
         fun getLocalIpAddress(): String {
+            // Method 1: Outbound socket route lookup (standard Java mechanism to resolve default LAN adapter)
             try {
-                val interfaces = NetworkInterface.getNetworkInterfaces()
-                while (interfaces.hasMoreElements()) {
-                    val networkInterface = interfaces.nextElement()
-                    if (networkInterface.isLoopback || !networkInterface.isUp) continue
-
-                    val addresses = networkInterface.inetAddresses
-                    while (addresses.hasMoreElements()) {
-                        val address = addresses.nextElement()
-                        if (!address.isLoopbackAddress && address is Inet4Address) {
-                            val ip = address.hostAddress
-                            if (ip.startsWith("192.168.") || ip.startsWith("10.") || ip.startsWith("172.")) {
-                                return ip
-                            }
+                DatagramSocket().use { socket ->
+                    socket.connect(InetAddress.getByName("8.8.8.8"), 10002)
+                    val address = socket.localAddress
+                    if (address is Inet4Address && !address.isLoopbackAddress) {
+                        val ip = address.hostAddress
+                        if (ip != null && ip != "0.0.0.0" && !ip.startsWith("127.") && !ip.startsWith("169.254.")) {
+                            return ip
                         }
                     }
                 }
             } catch (_: Exception) {}
+
+            // Method 2: Network interfaces scan with virtual/VPN adapter filtering
+            try {
+                val virtualKeywords = listOf(
+                    "virtual", "vbox", "vmware", "wintun", "tap", "tunnel",
+                    "vpn", "vethernet", "hyper-v", "pseudo", "loopback", "teredo", "radmin"
+                )
+                val candidateIps = mutableListOf<String>()
+
+                val interfaces = NetworkInterface.getNetworkInterfaces()
+                while (interfaces.hasMoreElements()) {
+                    val ni = interfaces.nextElement()
+                    if (ni.isLoopback || !ni.isUp) continue
+
+                    val name = (ni.name + " " + (ni.displayName ?: "")).lowercase()
+                    val isVirtual = virtualKeywords.any { name.contains(it) }
+
+                    val addresses = ni.inetAddresses
+                    while (addresses.hasMoreElements()) {
+                        val addr = addresses.nextElement()
+                        if (!addr.isLoopbackAddress && addr is Inet4Address) {
+                            val ip = addr.hostAddress
+                            if (ip.startsWith("169.254.") || ip.startsWith("127.")) continue
+
+                            if (!isVirtual) {
+                                if (ip.startsWith("192.168.") || ip.startsWith("10.") || ip.startsWith("172.")) {
+                                    return ip
+                                }
+                            } else {
+                                candidateIps.add(ip)
+                            }
+                        }
+                    }
+                }
+
+                if (candidateIps.isNotEmpty()) {
+                    val nonVirtual = candidateIps.firstOrNull { it.startsWith("192.168.") }
+                    if (nonVirtual != null) return nonVirtual
+                    return candidateIps.first()
+                }
+            } catch (_: Exception) {}
+
             return "127.0.0.1"
         }
     }

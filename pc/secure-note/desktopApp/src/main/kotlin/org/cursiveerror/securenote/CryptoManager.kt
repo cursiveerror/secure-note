@@ -60,6 +60,19 @@ object CryptoManager {
         return keyToBase64(getOrGenerateKey())
     }
 
+    fun regenerateKey(): String {
+        synchronized(this) {
+            val newKey = generateAesKey()
+            try {
+                keyFile.writeText(keyToBase64(newKey), Charsets.UTF_8)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+            currentKey = newKey
+            return keyToBase64(newKey)
+        }
+    }
+
     private fun generateAesKey(): SecretKey {
         val keyGen = KeyGenerator.getInstance(ALGORITHM)
         keyGen.init(256, SecureRandom())

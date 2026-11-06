@@ -50,18 +50,20 @@ private val ColorSuccess = Color(0xFF2E7D32)
 fun DesktopApp(
     serverIp: String,
     notes: List<Note>,
+    isPaired: Boolean = false,
+    onUnpair: () -> Unit = {},
     onAddNote: (String, String) -> Unit,
     onEditNote: (String, String, String) -> Unit,
     onDeleteNote: (String) -> Unit
 ) {
     val clipboardManager = LocalClipboardManager.current
     var searchQuery by remember { mutableStateOf("") }
-    val activeNotes = remember(notes) { notes.filter { !it.isDeleted } }
+    val activeNotes = notes.filter { !it.isDeleted }
     var selectedNoteId by remember { mutableStateOf<String?>(activeNotes.firstOrNull()?.id) }
     var showPairingDialog by remember { mutableStateOf(false) }
     var notificationMessage by remember { mutableStateOf<String?>(null) }
 
-    LaunchedEffect(activeNotes) {
+    LaunchedEffect(activeNotes.map { it.id }) {
         if (selectedNoteId == null || activeNotes.none { it.id == selectedNoteId }) {
             selectedNoteId = activeNotes.firstOrNull()?.id
         }
@@ -100,13 +102,13 @@ fun DesktopApp(
                                 modifier = Modifier
                                     .size(6.dp)
                                     .clip(CircleShape)
-                                    .background(ColorSuccess)
+                                    .background(if (isPaired) ColorSuccess else Color(0xFFF59E0B))
                             )
                             Spacer(modifier = Modifier.width(7.dp))
                             Text(
-                                text = "AES-256",
+                                text = if (isPaired) "Paired" else "Unpaired",
                                 fontSize = 11.sp,
-                                color = ColorBrandDark,
+                                color = if (isPaired) ColorSuccess else ColorBrandDark,
                                 fontWeight = FontWeight.SemiBold
                             )
                             Spacer(modifier = Modifier.width(8.dp))
@@ -160,24 +162,37 @@ fun DesktopApp(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                // Pair button
+                                // Pair / Paired button
                                 Surface(
                                     modifier = Modifier
                                         .height(30.dp)
                                         .clip(RoundedCornerShape(8.dp))
                                         .clickable { showPairingDialog = true }
-                                        .border(1.dp, ColorBorder, RoundedCornerShape(8.dp)),
-                                    color = Color.White
+                                        .border(
+                                            1.dp,
+                                            if (isPaired) Color(0xFFC3E6CD) else ColorBorder,
+                                            RoundedCornerShape(8.dp)
+                                        ),
+                                    color = if (isPaired) Color(0xFFE8F5E9) else Color.White
                                 ) {
-                                    Box(
+                                    Row(
                                         modifier = Modifier.fillMaxHeight().padding(horizontal = 10.dp),
-                                        contentAlignment = Alignment.Center
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(5.dp)
                                     ) {
+                                        if (isPaired) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(6.dp)
+                                                    .clip(CircleShape)
+                                                    .background(Color(0xFF2E7D32))
+                                            )
+                                        }
                                         Text(
-                                            text = "Pair",
+                                            text = if (isPaired) "Paired" else "Pair",
                                             fontSize = 11.sp,
-                                            fontWeight = FontWeight.Medium,
-                                            color = ColorBrand
+                                            fontWeight = if (isPaired) FontWeight.SemiBold else FontWeight.Medium,
+                                            color = if (isPaired) Color(0xFF2E7D32) else ColorBrand
                                         )
                                     }
                                 }
@@ -362,6 +377,11 @@ fun DesktopApp(
         if (showPairingDialog) {
             CompactPairingDialog(
                 serverIp = serverIp,
+                isPaired = isPaired,
+                onUnpair = {
+                    onUnpair()
+                    notificationMessage = "Unpaired and key regenerated"
+                },
                 onDismiss = { showPairingDialog = false },
                 onCopyKey = {
                     val key = CryptoManager.getKeyBase64()
@@ -592,10 +612,12 @@ fun CompactEditorPane(
 @Composable
 fun CompactPairingDialog(
     serverIp: String,
+    isPaired: Boolean,
+    onUnpair: () -> Unit,
     onDismiss: () -> Unit,
     onCopyKey: () -> Unit
 ) {
-    val keyBase64 = remember { CryptoManager.getKeyBase64() }
+    val keyBase64 = remember(isPaired) { CryptoManager.getKeyBase64() }
     val qrContent = remember(serverIp, keyBase64) {
         "SECURENOTE_PAIR:{\"ip\":\"$serverIp\",\"port\":8000,\"key\":\"$keyBase64\"}"
     }
@@ -605,7 +627,7 @@ fun CompactPairingDialog(
         onDismissRequest = onDismiss,
         title = {
             Text(
-                text = "Pair",
+                text = if (isPaired) "Device Pairing (Paired)" else "Pair with Phone",
                 fontSize = 15.sp,
                 fontWeight = FontWeight.Bold,
                 color = ColorTextPrimary
@@ -617,11 +639,28 @@ fun CompactPairingDialog(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Text(
-                    text = "Scan QR or copy key",
-                    fontSize = 12.sp,
-                    color = ColorTextMuted
-                )
+                if (isPaired) {
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = Color(0xFFE8F5E9),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFC3E6CD)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            text = "✓ Phone is paired and connected",
+                            color = Color(0xFF2E7D32),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp)
+                        )
+                    }
+                } else {
+                    Text(
+                        text = "Scan QR with phone to connect",
+                        fontSize = 12.sp,
+                        color = ColorTextMuted
+                    )
+                }
 
                 Surface(
                     modifier = Modifier.size(200.dp),
@@ -696,6 +735,23 @@ fun CompactPairingDialog(
                     fontWeight = FontWeight.SemiBold,
                     color = Color.White,
                     modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
+                )
+            }
+        },
+        dismissButton = {
+            if (isPaired) {
+                Text(
+                    text = "Unpair",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = Color(0xFFC62828),
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(6.dp))
+                        .clickable {
+                            onUnpair()
+                            onDismiss()
+                        }
+                        .padding(horizontal = 10.dp, vertical = 6.dp)
                 )
             }
         }

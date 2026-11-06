@@ -601,7 +601,12 @@ fun NoteScreen() {
                                                 if (savedIp != null) inputIp = savedIp
                                                 isPaired = true
                                                 showPairingDialog = false
-                                                statusMessage = if (savedIp != null) "Paired ($savedIp)" else "Paired (AES-256)"
+                                                statusMessage = "Paired with PC"
+
+                                                scope.launch {
+                                                    val ip = savedIp ?: CryptoManager.getSavedServerIp(context) ?: ""
+                                                    notifyServerPaired(context, ip, savedKey)
+                                                }
                                             }
                                         }
                                         .addOnFailureListener { e ->
@@ -705,6 +710,9 @@ fun NoteScreen() {
                             isPaired = CryptoManager.isPaired(context)
                             showPairingDialog = false
                             statusMessage = "Settings saved"
+                            scope.launch {
+                                notifyServerPaired(context, inputIp, inputKey)
+                            }
                         },
                     color = ColorBrand
                 ) {
@@ -727,11 +735,15 @@ fun NoteScreen() {
                         modifier = Modifier
                             .clip(RoundedCornerShape(6.dp))
                             .clickable {
+                                val oldIp = inputIp
                                 CryptoManager.clearKey(context)
                                 isPaired = false
                                 inputKey = ""
                                 inputIp = ""
                                 statusMessage = "Unpaired"
+                                scope.launch {
+                                    notifyServerUnpaired(context, oldIp)
+                                }
                             }
                             .padding(horizontal = 10.dp, vertical = 6.dp)
                     )
@@ -911,19 +923,47 @@ suspend fun discoverServerIp(context: Context): String? = withContext(Dispatcher
     null
 }
 
+suspend fun notifyServerPaired(context: Context, serverIp: String, key: String): Boolean = withContext(Dispatchers.IO) {
+    if (serverIp.isBlank() || key.isBlank()) return@withContext false
+    try {
+        val payload = """{"device":"Android","timestamp":${System.currentTimeMillis()}}"""
+        val (iv, data) = CryptoManager.encrypt(payload, key)
+        val body = """{"iv":"$iv","data":"$data"}""".toByteArray(Charsets.UTF_8)
+        val url = URL("http://$serverIp:8000/pair")
+        val conn = (url.openConnection() as HttpURLConnection).apply {
+            requestMethod = "POST"
+            setRequestProperty("Content-Type", "application/json; charset=utf-8")
+            doOutput = true
+            connectTimeout = 3000
+            readTimeout = 3000
+        }
+        conn.outputStream.use { it.write(body) }
+        val code = conn.responseCode
+        conn.disconnect()
+        code in 200..299
+    } catch (_: Exception) {
+        false
+    }
+}
+
+suspend fun notifyServerUnpaired(context: Context, serverIp: String) = withContext(Dispatchers.IO) {
+    if (serverIp.isBlank()) return@withContext
+    try {
+        val url = URL("http://$serverIp:8000/unpair")
+        val conn = (url.openConnection() as HttpURLConnection).apply {
+            requestMethod = "POST"
+            connectTimeout = 2000
+            readTimeout = 2000
+        }
+        conn.responseCode
+        conn.disconnect()
+    } catch (_: Exception) {}
+}
+
 // Full 2-Way Atomic Synchronization
 suspend fun syncNotesWithServer(context: Context, currentNotes: List<Note>): Pair<List<Note>, String> {
     return withContext(Dispatchers.IO) {
-        var serverIp = CryptoManager.getSavedServerIp(context)
-        val discovered = discoverServerIp(context)
-        if (!discovered.isNullOrBlank()) {
-            serverIp = discovered
-            CryptoManager.saveServerIp(context, discovered)
-        }
-
-        if (serverIp.isNullOrBlank()) {
-            return@withContext Pair(currentNotes, "PC not found. Make sure PC app is running on same Wi-Fi.")
-        }
+        var targetIp = CryptoManager.getSavedServerIp(context)
 
         val clientArray = JSONArray()
         for (n in currentNotes) {
@@ -955,63 +995,90 @@ suspend fun syncNotesWithServer(context: Context, currentNotes: List<Note>): Pai
             rawPayload.toByteArray(Charsets.UTF_8)
         }
 
-        var conn: HttpURLConnection? = null
-        try {
-            val url = URL("http://$serverIp:8000/sync")
-            conn = (url.openConnection() as HttpURLConnection).apply {
-                requestMethod = "POST"
-                setRequestProperty("Content-Type", "application/json; charset=utf-8")
-                doOutput = true
-                connectTimeout = 3000
-                readTimeout = 4000
-            }
+        fun trySync(ip: String): Pair<List<Note>, String>? {
+            var conn: HttpURLConnection? = null
+            return try {
+                val url = URL("http://$ip:8000/sync")
+                conn = (url.openConnection() as HttpURLConnection).apply {
+                    requestMethod = "POST"
+                    setRequestProperty("Content-Type", "application/json; charset=utf-8")
+                    doOutput = true
+                    connectTimeout = 2500
+                    readTimeout = 4000
+                }
 
-            conn.outputStream.use { os ->
-                os.write(payloadBytes)
-            }
+                conn.outputStream.use { os ->
+                    os.write(payloadBytes)
+                }
 
-            val code = conn.responseCode
-            if (code == 401) {
-                return@withContext Pair(currentNotes, "Key mismatch! Please scan PC's QR code to re-pair.")
-            }
-            if (code !in 200..299) {
-                return@withContext Pair(currentNotes, "Server error ($code)")
-            }
+                val code = conn.responseCode
+                if (code == 401) {
+                    return Pair(currentNotes, "Key mismatch! Please scan PC's QR code to re-pair.")
+                }
+                if (code !in 200..299) {
+                    return Pair(currentNotes, "Server error ($code)")
+                }
 
-            val responseText = conn.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
+                val responseText = conn.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
 
-            val decryptedText = if (wasEncrypted && responseText.trim().startsWith("{") && responseText.contains("\"iv\"")) {
-                val envelope = JSONObject(responseText)
-                val iv = envelope.getString("iv")
-                val data = envelope.getString("data")
-                CryptoManager.decrypt(data, iv, savedKey!!)
-            } else {
-                responseText
-            }
+                val decryptedText = if (wasEncrypted && responseText.trim().startsWith("{") && responseText.contains("\"iv\"")) {
+                    val envelope = JSONObject(responseText)
+                    val iv = envelope.getString("iv")
+                    val data = envelope.getString("data")
+                    CryptoManager.decrypt(data, iv, savedKey!!)
+                } else {
+                    responseText
+                }
 
-            val respObj = JSONObject(decryptedText)
-            val notesArr = respObj.optJSONArray("notes") ?: JSONArray()
-            val mergedList = mutableListOf<Note>()
-            for (i in 0 until notesArr.length()) {
-                val obj = notesArr.getJSONObject(i)
-                mergedList.add(
-                    Note(
-                        id = obj.optString("id", UUID.randomUUID().toString()),
-                        title = obj.optString("title", ""),
-                        content = obj.optString("content", ""),
-                        isSynced = true,
-                        timestamp = obj.optLong("timestamp", System.currentTimeMillis()),
-                        isDeleted = obj.optBoolean("isDeleted", false)
+                val respObj = JSONObject(decryptedText)
+                val notesArr = respObj.optJSONArray("notes") ?: JSONArray()
+                val mergedList = mutableListOf<Note>()
+                for (i in 0 until notesArr.length()) {
+                    val obj = notesArr.getJSONObject(i)
+                    mergedList.add(
+                        Note(
+                            id = obj.optString("id", UUID.randomUUID().toString()),
+                            title = obj.optString("title", ""),
+                            content = obj.optString("content", ""),
+                            isSynced = true,
+                            timestamp = obj.optLong("timestamp", System.currentTimeMillis()),
+                            isDeleted = obj.optBoolean("isDeleted", false)
+                        )
                     )
-                )
-            }
+                }
 
-            val activeCount = mergedList.count { !it.isDeleted }
-            Pair(mergedList, "Synced ($activeCount notes)")
-        } catch (e: Exception) {
-            Pair(currentNotes, "Connection failed: ${e.message ?: "PC unreachable"}")
-        } finally {
-            conn?.disconnect()
+                val activeCount = mergedList.count { !it.isDeleted }
+                Pair(mergedList, "Synced ($activeCount notes)")
+            } catch (_: Exception) {
+                null
+            } finally {
+                conn?.disconnect()
+            }
+        }
+
+        // Attempt 1: Fast direct connection using saved IP
+        if (!targetIp.isNullOrBlank()) {
+            val result = trySync(targetIp)
+            if (result != null) {
+                return@withContext result
+            }
+        }
+
+        // Attempt 2: UDP broadcast discovery if saved IP failed or was missing
+        val discovered = discoverServerIp(context)
+        if (!discovered.isNullOrBlank()) {
+            targetIp = discovered
+            CryptoManager.saveServerIp(context, discovered)
+            val result = trySync(discovered)
+            if (result != null) {
+                return@withContext result
+            }
+        }
+
+        if (targetIp.isNullOrBlank()) {
+            Pair(currentNotes, "PC not found. Make sure PC app is running on same Wi-Fi.")
+        } else {
+            Pair(currentNotes, "PC unreachable ($targetIp). Check Wi-Fi connection.")
         }
     }
 }
