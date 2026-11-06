@@ -10,9 +10,11 @@ dependencies {
     implementation(project(":shared"))
 
     implementation(compose.desktop.currentOs)
+    implementation(libs.compose.material3)
     implementation(libs.kotlinx.coroutinesSwing)
 
     implementation(libs.compose.uiToolingPreview)
+    implementation("org.json:json:20240303")
 }
 
 compose.desktop {
@@ -20,9 +22,11 @@ compose.desktop {
         mainClass = "org.cursiveerror.securenote.MainKt"
 
         nativeDistributions {
-            targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
+            targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb, TargetFormat.Exe)
             packageName = "org.cursiveerror.securenote"
             packageVersion = "1.0.0"
+            description = "SecureNote Desktop LAN Sync"
+            copyright = "© 2026 CursiveError"
         }
     }
 }
