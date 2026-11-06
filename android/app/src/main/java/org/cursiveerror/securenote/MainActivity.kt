@@ -108,24 +108,17 @@ fun NoteScreen() {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 18.dp, vertical = 14.dp),
+                            .padding(horizontal = 18.dp, vertical = 12.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Column {
-                            Text(
-                                text = "Secure Note",
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = ColorTextPrimary,
-                                letterSpacing = (-0.3).sp
-                            )
-                            Text(
-                                text = "Local & Encrypted",
-                                fontSize = 11.sp,
-                                color = ColorTextMuted
-                            )
-                        }
+                        Text(
+                            text = "SecureNote",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = ColorTextPrimary,
+                            letterSpacing = (-0.3).sp
+                        )
 
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
@@ -144,7 +137,7 @@ fun NoteScreen() {
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.Medium,
                                     color = if (isPaired) ColorSuccess else ColorBrand,
-                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
                                 )
                             }
 
@@ -155,17 +148,17 @@ fun NoteScreen() {
                                     .clickable(enabled = !isSyncing) {
                                         if (isSyncing) return@clickable
                                         isSyncing = true
-                                        statusMessage = "Searching for PC in local Wi-Fi..."
+                                        statusMessage = "Searching..."
 
                                         scope.launch {
                                             val serverIp = discoverServerIp(context)
                                             if (serverIp == null) {
-                                                statusMessage = "PC not found on local Wi-Fi"
+                                                statusMessage = "PC not found"
                                                 isSyncing = false
                                                 return@launch
                                             }
 
-                                            statusMessage = "Syncing with $serverIp..."
+                                            statusMessage = "Syncing..."
                                             val (mergedList, syncMsg) = syncNotesWithServer(context, notes, serverIp)
                                             saveLocalNotes(context, mergedList)
                                             notes = mergedList
@@ -180,7 +173,7 @@ fun NoteScreen() {
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.SemiBold,
                                     color = Color.White,
-                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp)
                                 )
                             }
                         }
@@ -193,20 +186,25 @@ fun NoteScreen() {
         floatingActionButton = {
             Surface(
                 modifier = Modifier
-                    .clip(RoundedCornerShape(12.dp))
+                    .size(50.dp)
+                    .clip(RoundedCornerShape(14.dp))
                     .clickable { showCreateDialog = true }
-                    .padding(bottom = 6.dp),
-                shape = RoundedCornerShape(12.dp),
+                    .padding(bottom = 2.dp),
+                shape = RoundedCornerShape(14.dp),
                 color = ColorBrand,
                 shadowElevation = 4.dp
             ) {
-                Text(
-                    text = "+ New note",
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = Color.White,
-                    modifier = Modifier.padding(horizontal = 18.dp, vertical = 12.dp)
-                )
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "+",
+                        fontSize = 26.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                }
             }
         }
     ) { innerPadding ->
@@ -215,19 +213,19 @@ fun NoteScreen() {
                 .fillMaxSize()
                 .padding(innerPadding)
                 .background(ColorBackground)
-                .padding(horizontal = 16.dp, vertical = 10.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+                .padding(horizontal = 14.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             // Status bar message banner
             AnimatedVisibility(visible = statusMessage.isNotEmpty()) {
                 Surface(
                     color = ColorBrandSoft,
-                    shape = RoundedCornerShape(10.dp),
+                    shape = RoundedCornerShape(8.dp),
                     border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFCBE0ED)),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Row(
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
@@ -238,14 +236,14 @@ fun NoteScreen() {
                             modifier = Modifier.weight(1f)
                         )
                         Text(
-                            text = "Dismiss",
+                            text = "✕",
                             fontSize = 11.sp,
-                            fontWeight = FontWeight.Medium,
+                            fontWeight = FontWeight.Bold,
                             color = ColorBrand,
                             modifier = Modifier
                                 .clip(RoundedCornerShape(4.dp))
                                 .clickable { statusMessage = "" }
-                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                                .padding(horizontal = 4.dp, vertical = 2.dp)
                         )
                     }
                 }
@@ -263,18 +261,19 @@ fun NoteScreen() {
                 cursorBrush = SolidColor(ColorBrand),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
+                    .height(38.dp)
+                    .clip(RoundedCornerShape(10.dp))
                     .background(Color.White)
-                    .border(1.dp, ColorBorder, RoundedCornerShape(12.dp))
-                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                    .border(1.dp, ColorBorder, RoundedCornerShape(10.dp))
+                    .padding(horizontal = 12.dp),
                 decorationBox = { innerTextField ->
                     Box(
                         contentAlignment = Alignment.CenterStart,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxSize()
                     ) {
                         if (searchQuery.isEmpty()) {
                             Text(
-                                text = "Search notes...",
+                                text = "Search...",
                                 fontSize = 13.sp,
                                 color = ColorTextPlaceholder
                             )
@@ -290,41 +289,32 @@ fun NoteScreen() {
                     modifier = Modifier.weight(1f).fillMaxWidth(),
                     contentAlignment = Alignment.Center
                 ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(
-                            text = if (searchQuery.isNotBlank()) "No notes match your search" else "No notes yet",
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = ColorTextMuted
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = if (searchQuery.isNotBlank()) "Try a different search query." else "Tap '+ New note' to create one.",
-                            fontSize = 12.sp,
-                            color = ColorTextPlaceholder
-                        )
-                    }
+                    Text(
+                        text = if (searchQuery.isNotBlank()) "No matches" else "No notes",
+                        fontSize = 13.sp,
+                        color = ColorTextMuted
+                    )
                 }
             } else {
                 LazyColumn(
                     modifier = Modifier.weight(1f).fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                    contentPadding = PaddingValues(bottom = 80.dp)
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                    contentPadding = PaddingValues(bottom = 76.dp)
                 ) {
                     items(filteredNotes, key = { it.id }) { note ->
-                        SoftMobileNoteCard(
+                        CompactMobileNoteCard(
                             note = note,
                             onClick = { selectedNote = note },
                             onCopy = {
                                 val textToCopy = if (note.title.isNotBlank()) "${note.title}\n\n${note.content}" else note.content
                                 clipboardManager.setText(AnnotatedString(textToCopy))
-                                Toast.makeText(context, "Copied to clipboard", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, "Copied", Toast.LENGTH_SHORT).show()
                             },
                             onDelete = {
                                 val updated = notes.filter { it.id != note.id }
                                 saveLocalNotes(context, updated)
                                 notes = updated
-                                statusMessage = "Note deleted"
+                                statusMessage = "Deleted"
                             }
                         )
                     }
@@ -342,14 +332,14 @@ fun NoteScreen() {
             onDismissRequest = { showCreateDialog = false },
             title = {
                 Text(
-                    text = "New note",
+                    text = "New",
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Bold,
                     color = ColorTextPrimary
                 )
             },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     BasicTextField(
                         value = newTitle,
                         onValueChange = { newTitle = it },
@@ -358,13 +348,13 @@ fun NoteScreen() {
                         cursorBrush = SolidColor(ColorBrand),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(10.dp))
+                            .clip(RoundedCornerShape(8.dp))
                             .background(Color(0xFFF8FAFC))
-                            .border(1.dp, ColorBorder, RoundedCornerShape(10.dp))
-                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                            .border(1.dp, ColorBorder, RoundedCornerShape(8.dp))
+                            .padding(horizontal = 10.dp, vertical = 8.dp),
                         decorationBox = { inner ->
                             Box {
-                                if (newTitle.isEmpty()) Text("Note title", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = ColorTextPlaceholder)
+                                if (newTitle.isEmpty()) Text("Title", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = ColorTextPlaceholder)
                                 inner()
                             }
                         }
@@ -377,14 +367,14 @@ fun NoteScreen() {
                         cursorBrush = SolidColor(ColorBrand),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(140.dp)
-                            .clip(RoundedCornerShape(10.dp))
+                            .height(130.dp)
+                            .clip(RoundedCornerShape(8.dp))
                             .background(Color(0xFFF8FAFC))
-                            .border(1.dp, ColorBorder, RoundedCornerShape(10.dp))
-                            .padding(12.dp),
+                            .border(1.dp, ColorBorder, RoundedCornerShape(8.dp))
+                            .padding(10.dp),
                         decorationBox = { inner ->
                             Box {
-                                if (newContent.isEmpty()) Text("Write your thoughts here...", fontSize = 14.sp, color = ColorTextPlaceholder)
+                                if (newContent.isEmpty()) Text("Note...", fontSize = 14.sp, color = ColorTextPlaceholder)
                                 inner()
                             }
                         }
@@ -394,7 +384,7 @@ fun NoteScreen() {
             confirmButton = {
                 Surface(
                     modifier = Modifier
-                        .clip(RoundedCornerShape(8.dp))
+                        .clip(RoundedCornerShape(6.dp))
                         .clickable {
                             if (newTitle.isNotBlank() || newContent.isNotBlank()) {
                                 val newNote = Note(
@@ -407,7 +397,7 @@ fun NoteScreen() {
                                 saveLocalNotes(context, updated)
                                 notes = updated
                                 showCreateDialog = false
-                                statusMessage = "Saved locally"
+                                statusMessage = "Saved"
                             }
                         },
                     color = ColorBrand
@@ -417,7 +407,7 @@ fun NoteScreen() {
                         fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = Color.White,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
                     )
                 }
             },
@@ -428,9 +418,9 @@ fun NoteScreen() {
                     fontWeight = FontWeight.Medium,
                     color = ColorTextMuted,
                     modifier = Modifier
-                        .clip(RoundedCornerShape(8.dp))
+                        .clip(RoundedCornerShape(6.dp))
                         .clickable { showCreateDialog = false }
-                        .padding(horizontal = 12.dp, vertical = 8.dp)
+                        .padding(horizontal = 10.dp, vertical = 6.dp)
                 )
             }
         )
@@ -445,14 +435,14 @@ fun NoteScreen() {
             onDismissRequest = { selectedNote = null },
             title = {
                 Text(
-                    text = "Edit note",
+                    text = "Edit",
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Bold,
                     color = ColorTextPrimary
                 )
             },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     BasicTextField(
                         value = editTitle,
                         onValueChange = { editTitle = it },
@@ -461,13 +451,13 @@ fun NoteScreen() {
                         cursorBrush = SolidColor(ColorBrand),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(10.dp))
+                            .clip(RoundedCornerShape(8.dp))
                             .background(Color(0xFFF8FAFC))
-                            .border(1.dp, ColorBorder, RoundedCornerShape(10.dp))
-                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                            .border(1.dp, ColorBorder, RoundedCornerShape(8.dp))
+                            .padding(horizontal = 10.dp, vertical = 8.dp),
                         decorationBox = { inner ->
                             Box {
-                                if (editTitle.isEmpty()) Text("Note title", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = ColorTextPlaceholder)
+                                if (editTitle.isEmpty()) Text("Title", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = ColorTextPlaceholder)
                                 inner()
                             }
                         }
@@ -480,14 +470,14 @@ fun NoteScreen() {
                         cursorBrush = SolidColor(ColorBrand),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(140.dp)
-                            .clip(RoundedCornerShape(10.dp))
+                            .height(130.dp)
+                            .clip(RoundedCornerShape(8.dp))
                             .background(Color(0xFFF8FAFC))
-                            .border(1.dp, ColorBorder, RoundedCornerShape(10.dp))
-                            .padding(12.dp),
+                            .border(1.dp, ColorBorder, RoundedCornerShape(8.dp))
+                            .padding(10.dp),
                         decorationBox = { inner ->
                             Box {
-                                if (editContent.isEmpty()) Text("Write your thoughts here...", fontSize = 14.sp, color = ColorTextPlaceholder)
+                                if (editContent.isEmpty()) Text("Note...", fontSize = 14.sp, color = ColorTextPlaceholder)
                                 inner()
                             }
                         }
@@ -497,7 +487,7 @@ fun NoteScreen() {
             confirmButton = {
                 Surface(
                     modifier = Modifier
-                        .clip(RoundedCornerShape(8.dp))
+                        .clip(RoundedCornerShape(6.dp))
                         .clickable {
                             val updated = notes.map {
                                 if (it.id == currentNote.id) {
@@ -512,7 +502,7 @@ fun NoteScreen() {
                             saveLocalNotes(context, updated)
                             notes = updated
                             selectedNote = null
-                            statusMessage = "Updated locally"
+                            statusMessage = "Saved"
                         },
                     color = ColorBrand
                 ) {
@@ -521,7 +511,7 @@ fun NoteScreen() {
                         fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = Color.White,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
                     )
                 }
             },
@@ -532,9 +522,9 @@ fun NoteScreen() {
                     fontWeight = FontWeight.Medium,
                     color = ColorTextMuted,
                     modifier = Modifier
-                        .clip(RoundedCornerShape(8.dp))
+                        .clip(RoundedCornerShape(6.dp))
                         .clickable { selectedNote = null }
-                        .padding(horizontal = 12.dp, vertical = 8.dp)
+                        .padding(horizontal = 10.dp, vertical = 6.dp)
                 )
             }
         )
@@ -548,7 +538,7 @@ fun NoteScreen() {
             onDismissRequest = { showPairingDialog = false },
             title = {
                 Text(
-                    text = "Pair with PC",
+                    text = "Pair",
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Bold,
                     color = ColorTextPrimary
@@ -557,13 +547,12 @@ fun NoteScreen() {
             text = {
                 Column(
                     modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     Text(
-                        text = "Scan the QR code displayed in the PC app or paste the secret key below.",
-                        fontSize = 13.sp,
-                        color = ColorTextMuted,
-                        lineHeight = 18.sp
+                        text = "Scan QR or enter key",
+                        fontSize = 12.sp,
+                        color = ColorTextMuted
                     )
 
                     Surface(
@@ -580,25 +569,25 @@ fun NoteScreen() {
                                                 CryptoManager.saveKey(context, rawValue)
                                                 isPaired = true
                                                 showPairingDialog = false
-                                                statusMessage = "Paired with PC via QR Code"
+                                                statusMessage = "Paired"
                                             }
                                         }
                                         .addOnFailureListener { e ->
-                                            Toast.makeText(context, "Scan: ${e.message}", Toast.LENGTH_SHORT).show()
+                                            Toast.makeText(context, "${e.message}", Toast.LENGTH_SHORT).show()
                                         }
                                 } catch (e: Exception) {
-                                    Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, "${e.message}", Toast.LENGTH_SHORT).show()
                                 }
                             },
                         color = ColorBrand
                     ) {
                         Text(
-                            text = "Scan QR code",
+                            text = "Scan QR",
                             fontSize = 12.sp,
                             fontWeight = FontWeight.SemiBold,
                             color = Color.White,
                             textAlign = TextAlign.Center,
-                            modifier = Modifier.padding(vertical = 10.dp)
+                            modifier = Modifier.padding(vertical = 9.dp)
                         )
                     }
 
@@ -606,21 +595,21 @@ fun NoteScreen() {
                         value = inputKey,
                         onValueChange = { inputKey = it },
                         textStyle = TextStyle(
-                            fontSize = 12.sp,
+                            fontSize = 11.sp,
                             fontFamily = FontFamily.Monospace,
                             color = ColorTextPrimary
                         ),
                         cursorBrush = SolidColor(ColorBrand),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(70.dp)
-                            .clip(RoundedCornerShape(10.dp))
+                            .height(64.dp)
+                            .clip(RoundedCornerShape(8.dp))
                             .background(Color(0xFFF8FAFC))
-                            .border(1.dp, ColorBorder, RoundedCornerShape(10.dp))
-                            .padding(10.dp),
+                            .border(1.dp, ColorBorder, RoundedCornerShape(8.dp))
+                            .padding(8.dp),
                         decorationBox = { inner ->
                             Box {
-                                if (inputKey.isEmpty()) Text("Paste Base64 secret key here...", fontSize = 11.sp, color = ColorTextPlaceholder)
+                                if (inputKey.isEmpty()) Text("Key...", fontSize = 11.sp, color = ColorTextPlaceholder)
                                 inner()
                             }
                         }
@@ -633,11 +622,11 @@ fun NoteScreen() {
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Text(
-                                text = "AES-256 Cipher Active · Paired",
+                                text = "Paired (AES-256)",
                                 color = ColorSuccess,
                                 fontWeight = FontWeight.Medium,
                                 fontSize = 11.sp,
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp)
                             )
                         }
                     }
@@ -646,23 +635,23 @@ fun NoteScreen() {
             confirmButton = {
                 Surface(
                     modifier = Modifier
-                        .clip(RoundedCornerShape(8.dp))
+                        .clip(RoundedCornerShape(6.dp))
                         .clickable {
                             if (inputKey.isNotBlank()) {
                                 CryptoManager.saveKey(context, inputKey)
                                 isPaired = true
                                 showPairingDialog = false
-                                statusMessage = "Paired with PC"
+                                statusMessage = "Paired"
                             }
                         },
                     color = ColorBrand
                 ) {
                     Text(
-                        text = "Save key",
+                        text = "Save",
                         fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = Color.White,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
                     )
                 }
             },
@@ -674,14 +663,14 @@ fun NoteScreen() {
                         fontWeight = FontWeight.Medium,
                         color = Color(0xFFC62828),
                         modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
+                            .clip(RoundedCornerShape(6.dp))
                             .clickable {
                                 CryptoManager.clearKey(context)
                                 isPaired = false
                                 inputKey = ""
                                 statusMessage = "Unpaired"
                             }
-                            .padding(horizontal = 12.dp, vertical = 8.dp)
+                            .padding(horizontal = 10.dp, vertical = 6.dp)
                     )
                 } else {
                     Text(
@@ -690,9 +679,9 @@ fun NoteScreen() {
                         fontWeight = FontWeight.Medium,
                         color = ColorTextMuted,
                         modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
+                            .clip(RoundedCornerShape(6.dp))
                             .clickable { showPairingDialog = false }
-                            .padding(horizontal = 12.dp, vertical = 8.dp)
+                            .padding(horizontal = 10.dp, vertical = 6.dp)
                     )
                 }
             }
@@ -701,28 +690,28 @@ fun NoteScreen() {
 }
 
 @Composable
-fun SoftMobileNoteCard(
+fun CompactMobileNoteCard(
     note: Note,
     onClick: () -> Unit,
     onCopy: () -> Unit,
     onDelete: () -> Unit
 ) {
-    val dateFormat = remember { SimpleDateFormat("dd MMM, HH:mm", Locale.getDefault()) }
+    val dateFormat = remember { SimpleDateFormat("d MMM, HH:mm", Locale.getDefault()) }
     val formattedDate = remember(note.timestamp) { dateFormat.format(Date(note.timestamp)) }
 
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
+            .clip(RoundedCornerShape(12.dp))
             .clickable { onClick() }
-            .border(1.dp, ColorBorder, RoundedCornerShape(14.dp)),
-        shape = RoundedCornerShape(14.dp),
+            .border(1.dp, ColorBorder, RoundedCornerShape(12.dp)),
+        shape = RoundedCornerShape(12.dp),
         color = Color.White
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(14.dp)
+                .padding(12.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -730,7 +719,7 @@ fun SoftMobileNoteCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = note.title.ifBlank { "Untitled note" },
+                    text = note.title.ifBlank { "Untitled" },
                     fontSize = 14.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = ColorTextPrimary,
@@ -741,33 +730,32 @@ fun SoftMobileNoteCard(
 
                 Text(
                     text = formattedDate,
-                    fontSize = 11.sp,
+                    fontSize = 10.sp,
                     color = ColorTextMuted
                 )
             }
 
             if (note.content.isNotBlank()) {
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(3.dp))
                 Text(
                     text = note.content,
                     fontSize = 12.sp,
                     color = ColorTextMuted,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
-                    lineHeight = 17.sp
+                    lineHeight = 16.sp
                 )
             }
 
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Sync status chip matching icon tone
                 Surface(
-                    shape = RoundedCornerShape(6.dp),
+                    shape = RoundedCornerShape(4.dp),
                     color = if (note.isSynced) ColorSuccessBg else ColorBrandSoft
                 ) {
                     Text(
@@ -775,7 +763,7 @@ fun SoftMobileNoteCard(
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Medium,
                         color = if (note.isSynced) ColorSuccess else ColorBrandDark,
-                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp)
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                     )
                 }
 
@@ -793,7 +781,7 @@ fun SoftMobileNoteCard(
                             fontSize = 10.sp,
                             fontWeight = FontWeight.Medium,
                             color = ColorTextPrimary,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
                         )
                     }
 
@@ -810,7 +798,7 @@ fun SoftMobileNoteCard(
                             fontSize = 10.sp,
                             fontWeight = FontWeight.Medium,
                             color = Color(0xFFC62828),
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
                         )
                     }
                 }
@@ -881,7 +869,7 @@ suspend fun syncNotesWithServer(context: Context, currentNotes: List<Note>, serv
 
         val (pulledNotes, pullSuccess) = fetchNotesFromHost(serverIp, context)
         if (!pullSuccess) {
-            val msg = if (pushedCount > 0) "Sent $pushedCount note(s) to PC." else "Could not reach PC server."
+            val msg = if (pushedCount > 0) "Sent $pushedCount" else "PC unreachable"
             return@withContext Pair(afterPushList, msg)
         }
 
@@ -901,7 +889,7 @@ suspend fun syncNotesWithServer(context: Context, currentNotes: List<Note>, serv
         }
 
         val mergedList = noteMap.values.sortedByDescending { it.timestamp }
-        val finalMsg = "Synced. Sent $pushedCount, received $newFromPcCount from PC."
+        val finalMsg = "Synced (+$pushedCount / -$newFromPcCount)"
         Pair(mergedList, finalMsg)
     }
 }

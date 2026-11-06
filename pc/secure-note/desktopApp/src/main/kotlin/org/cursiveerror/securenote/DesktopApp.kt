@@ -34,12 +34,10 @@ import java.util.Date
 import java.util.Locale
 
 // Cerulean & Sky Palette derived directly from app icon (#64ABD0)
-private val ColorIconSky = Color(0xFF64ABD0)
 private val ColorBrand = Color(0xFF438EB5)
 private val ColorBrandDark = Color(0xFF286282)
 private val ColorBrandSoft = Color(0xFFEAF3F8)
 private val ColorSidebar = Color(0xFFF8FAFC)
-private val ColorBackground = Color(0xFFF3F7FA)
 private val ColorBorder = Color(0xFFE2EAF0)
 private val ColorTextPrimary = Color(0xFF1A262F)
 private val ColorTextMuted = Color(0xFF637887)
@@ -85,33 +83,33 @@ fun DesktopApp(
     MaterialTheme {
         Scaffold(
             bottomBar = {
-                // Subtle status footer matching icon tone
+                // Compact status footer
                 Surface(
                     color = Color(0xFFEEF3F7),
-                    modifier = Modifier.fillMaxWidth().height(28.dp)
+                    modifier = Modifier.fillMaxWidth().height(26.dp)
                 ) {
                     Row(
-                        modifier = Modifier.fillMaxSize().padding(horizontal = 18.dp),
+                        modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Box(
                                 modifier = Modifier
-                                    .size(7.dp)
+                                    .size(6.dp)
                                     .clip(CircleShape)
                                     .background(ColorSuccess)
                             )
-                            Spacer(modifier = Modifier.width(8.dp))
+                            Spacer(modifier = Modifier.width(7.dp))
                             Text(
-                                text = "AES-256 Encrypted",
+                                text = "AES-256",
                                 fontSize = 11.sp,
                                 color = ColorBrandDark,
                                 fontWeight = FontWeight.SemiBold
                             )
-                            Spacer(modifier = Modifier.width(12.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = "·  LAN: $serverIp:8000  ·  UDP 8888",
+                                text = "·  LAN $serverIp:8000",
                                 fontSize = 11.sp,
                                 color = ColorTextMuted
                             )
@@ -135,35 +133,28 @@ fun DesktopApp(
                     // LEFT SIDEBAR: Notes Directory
                     Column(
                         modifier = Modifier
-                            .width(310.dp)
+                            .width(290.dp)
                             .fillMaxHeight()
                             .background(ColorSidebar)
                     ) {
-                        // Brand Header without standalone icon
+                        // Header: Brand & Actions
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 14.dp)
+                                .padding(horizontal = 14.dp, vertical = 12.dp)
                         ) {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Column {
-                                    Text(
-                                        text = "Secure Note",
-                                        fontSize = 17.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = ColorTextPrimary,
-                                        letterSpacing = (-0.3).sp
-                                    )
-                                    Text(
-                                        text = "Local & Encrypted",
-                                        fontSize = 11.sp,
-                                        color = ColorTextMuted
-                                    )
-                                }
+                                Text(
+                                    text = "SecureNote",
+                                    fontSize = 17.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = ColorTextPrimary,
+                                    letterSpacing = (-0.3).sp
+                                )
 
                                 Surface(
                                     modifier = Modifier
@@ -173,105 +164,104 @@ fun DesktopApp(
                                     color = Color.White
                                 ) {
                                     Text(
-                                        text = "Pair device",
+                                        text = "Pair",
                                         fontSize = 11.sp,
                                         fontWeight = FontWeight.Medium,
                                         color = ColorBrand,
-                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
-                                    )
-                                }
-                            }
-
-                            Spacer(modifier = Modifier.height(14.dp))
-
-                            // Action button: + New note (soft squircle)
-                            Surface(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(36.dp)
-                                    .clip(RoundedCornerShape(10.dp))
-                                    .clickable {
-                                        val newTitle = "Untitled"
-                                        val newContent = ""
-                                        onAddNote(newTitle, newContent)
-                                        notificationMessage = "New note created"
-                                    },
-                                color = ColorBrand
-                            ) {
-                                Box(
-                                    modifier = Modifier.fillMaxSize(),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text(
-                                        text = "+ New note",
-                                        color = Color.White,
-                                        fontSize = 13.sp,
-                                        fontWeight = FontWeight.SemiBold
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
                                     )
                                 }
                             }
 
                             Spacer(modifier = Modifier.height(10.dp))
 
-                            // Search field (comfortable padding, zero clipping)
-                            BasicTextField(
-                                value = searchQuery,
-                                onValueChange = { searchQuery = it },
-                                singleLine = true,
-                                textStyle = TextStyle(
-                                    fontSize = 12.sp,
-                                    color = ColorTextPrimary
-                                ),
-                                cursorBrush = SolidColor(ColorBrand),
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clip(RoundedCornerShape(10.dp))
-                                    .background(Color.White)
-                                    .border(1.dp, ColorBorder, RoundedCornerShape(10.dp))
-                                    .padding(horizontal = 12.dp, vertical = 9.dp),
-                                decorationBox = { innerTextField ->
-                                    Box(
-                                        contentAlignment = Alignment.CenterStart,
-                                        modifier = Modifier.fillMaxWidth()
-                                    ) {
-                                        if (searchQuery.isEmpty()) {
-                                            Text(
-                                                text = "Search notes...",
-                                                fontSize = 12.sp,
-                                                color = ColorTextPlaceholder
-                                            )
+                            // Search bar + compact '+' button row
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                BasicTextField(
+                                    value = searchQuery,
+                                    onValueChange = { searchQuery = it },
+                                    singleLine = true,
+                                    textStyle = TextStyle(
+                                        fontSize = 12.sp,
+                                        color = ColorTextPrimary
+                                    ),
+                                    cursorBrush = SolidColor(ColorBrand),
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(34.dp)
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(Color.White)
+                                        .border(1.dp, ColorBorder, RoundedCornerShape(8.dp))
+                                        .padding(horizontal = 10.dp),
+                                    decorationBox = { innerTextField ->
+                                        Box(
+                                            contentAlignment = Alignment.CenterStart,
+                                            modifier = Modifier.fillMaxSize()
+                                        ) {
+                                            if (searchQuery.isEmpty()) {
+                                                Text(
+                                                    text = "Search...",
+                                                    fontSize = 12.sp,
+                                                    color = ColorTextPlaceholder
+                                                )
+                                            }
+                                            innerTextField()
                                         }
-                                        innerTextField()
+                                    }
+                                )
+
+                                Surface(
+                                    modifier = Modifier
+                                        .size(34.dp)
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .clickable {
+                                            onAddNote("Untitled", "")
+                                            notificationMessage = "Created"
+                                        },
+                                    color = ColorBrand
+                                ) {
+                                    Box(
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = "+",
+                                            color = Color.White,
+                                            fontSize = 18.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
                                     }
                                 }
-                            )
+                            }
                         }
 
                         HorizontalDivider(color = ColorBorder, thickness = 1.dp)
 
-                        // Notes Listing
+                        // Notes List
                         if (filteredNotes.isEmpty()) {
                             Box(
-                                modifier = Modifier.fillMaxSize().padding(24.dp),
+                                modifier = Modifier.fillMaxSize().padding(20.dp),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Text(
-                                    text = if (searchQuery.isNotBlank()) "No notes match your search" else "No notes yet\nClick '+ New note' to start",
+                                    text = if (searchQuery.isNotBlank()) "No matches" else "No notes",
                                     fontSize = 12.sp,
-                                    color = ColorTextMuted,
-                                    textAlign = TextAlign.Center,
-                                    lineHeight = 18.sp
+                                    color = ColorTextMuted
                                 )
                             }
                         } else {
                             LazyColumn(
                                 modifier = Modifier.fillMaxSize(),
-                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp),
-                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp),
+                                verticalArrangement = Arrangement.spacedBy(3.dp)
                             ) {
                                 items(filteredNotes, key = { it.id }) { note ->
                                     val isSelected = note.id == selectedNoteId
-                                    SoftSquircleNoteItem(
+                                    CompactNoteItem(
                                         note = note,
                                         isSelected = isSelected,
                                         onClick = { selectedNoteId = note.id }
@@ -281,28 +271,27 @@ fun DesktopApp(
                         }
                     }
 
-                    // Soft Divider
                     VerticalDivider(color = ColorBorder, thickness = 1.dp)
 
-                    // RIGHT PANE: Editorial Canvas
+                    // RIGHT PANE: Note Editor
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
                             .background(Color.White)
                     ) {
                         if (selectedNote != null) {
-                            SoftEditorPane(
+                            CompactEditorPane(
                                 note = selectedNote,
                                 onUpdate = { title, content ->
                                     onEditNote(selectedNote.id, title, content)
                                 },
                                 onCopy = {
                                     clipboardManager.setText(AnnotatedString(selectedNote.content))
-                                    notificationMessage = "Copied to clipboard"
+                                    notificationMessage = "Copied"
                                 },
                                 onDelete = {
                                     onDeleteNote(selectedNote.id)
-                                    notificationMessage = "Note deleted"
+                                    notificationMessage = "Deleted"
                                 }
                             )
                         } else {
@@ -310,44 +299,35 @@ fun DesktopApp(
                                 modifier = Modifier.fillMaxSize(),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Text(
-                                        text = "Select a note to view",
-                                        fontSize = 14.sp,
-                                        fontWeight = FontWeight.Medium,
-                                        color = ColorTextMuted
-                                    )
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    Text(
-                                        text = "Or create a new note from the left sidebar.",
-                                        fontSize = 12.sp,
-                                        color = ColorTextPlaceholder
-                                    )
-                                }
+                                Text(
+                                    text = "Select a note",
+                                    fontSize = 13.sp,
+                                    color = ColorTextMuted
+                                )
                             }
                         }
                     }
                 }
 
-                // Toast notification
+                // Compact Toast
                 notificationMessage?.let { msg ->
                     LaunchedEffect(msg) {
-                        kotlinx.coroutines.delay(1800)
+                        kotlinx.coroutines.delay(1500)
                         notificationMessage = null
                     }
                     Surface(
                         modifier = Modifier
                             .align(Alignment.BottomCenter)
-                            .padding(bottom = 38.dp),
-                        shape = RoundedCornerShape(10.dp),
+                            .padding(bottom = 34.dp),
+                        shape = RoundedCornerShape(8.dp),
                         color = ColorTextPrimary,
-                        shadowElevation = 6.dp
+                        shadowElevation = 4.dp
                     ) {
                         Text(
                             text = msg,
                             color = Color.White,
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                            fontSize = 12.sp,
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
+                            fontSize = 11.sp,
                             fontWeight = FontWeight.Medium
                         )
                     }
@@ -355,14 +335,13 @@ fun DesktopApp(
             }
         }
 
-        // Clean Pairing Dialog
         if (showPairingDialog) {
-            SoftPairingDialog(
+            CompactPairingDialog(
                 onDismiss = { showPairingDialog = false },
                 onCopyKey = {
                     val key = CryptoManager.getKeyBase64()
                     clipboardManager.setText(AnnotatedString(key))
-                    notificationMessage = "Key copied to clipboard"
+                    notificationMessage = "Key copied"
                 }
             )
         }
@@ -370,27 +349,27 @@ fun DesktopApp(
 }
 
 @Composable
-fun SoftSquircleNoteItem(
+fun CompactNoteItem(
     note: Note,
     isSelected: Boolean,
     onClick: () -> Unit
 ) {
-    val dateFormat = remember { SimpleDateFormat("dd MMM, HH:mm", Locale.getDefault()) }
+    val dateFormat = remember { SimpleDateFormat("d MMM, HH:mm", Locale.getDefault()) }
     val formattedDate = remember(note.timestamp) { dateFormat.format(Date(note.timestamp)) }
 
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
+            .clip(RoundedCornerShape(8.dp))
             .clickable { onClick() },
-        shape = RoundedCornerShape(10.dp),
+        shape = RoundedCornerShape(8.dp),
         color = if (isSelected) ColorBrandSoft else Color.Transparent,
         border = if (isSelected) androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFCBE0ED)) else null
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 10.dp)
+                .padding(horizontal = 12.dp, vertical = 8.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -398,7 +377,7 @@ fun SoftSquircleNoteItem(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = note.title.ifBlank { "Untitled note" },
+                    text = note.title.ifBlank { "Untitled" },
                     fontSize = 13.sp,
                     fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
                     color = if (isSelected) ColorBrandDark else ColorTextPrimary,
@@ -409,16 +388,16 @@ fun SoftSquircleNoteItem(
 
                 Text(
                     text = formattedDate,
-                    fontSize = 11.sp,
+                    fontSize = 10.sp,
                     color = ColorTextMuted
                 )
             }
 
-            Spacer(modifier = Modifier.height(3.dp))
+            Spacer(modifier = Modifier.height(2.dp))
 
             Text(
-                text = note.content.ifBlank { "No additional text" },
-                fontSize = 12.sp,
+                text = note.content.ifBlank { "Empty" },
+                fontSize = 11.sp,
                 color = if (isSelected) Color(0xFF33576C) else ColorTextMuted,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
@@ -428,7 +407,7 @@ fun SoftSquircleNoteItem(
 }
 
 @Composable
-fun SoftEditorPane(
+fun CompactEditorPane(
     note: Note,
     onUpdate: (String, String) -> Unit,
     onCopy: () -> Unit,
@@ -436,50 +415,50 @@ fun SoftEditorPane(
 ) {
     var editTitle by remember(note.id) { mutableStateOf(note.title) }
     var editContent by remember(note.id) { mutableStateOf(note.content) }
-    val dateFormat = remember { SimpleDateFormat("MMMM d, yyyy · HH:mm", Locale.getDefault()) }
+    val dateFormat = remember { SimpleDateFormat("d MMM, HH:mm", Locale.getDefault()) }
     val formattedDate = remember(note.timestamp) { dateFormat.format(Date(note.timestamp)) }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        // Calm Top Toolbar
+        // Toolbar
         Surface(
-            modifier = Modifier.fillMaxWidth().height(48.dp),
+            modifier = Modifier.fillMaxWidth().height(44.dp),
             color = Color.White
         ) {
             Row(
-                modifier = Modifier.fillMaxSize().padding(horizontal = 28.dp),
+                modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Saved · $formattedDate · ${editContent.length} characters",
+                    text = "$formattedDate · ${editContent.length} chars",
                     fontSize = 11.sp,
                     color = ColorTextMuted
                 )
 
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     Surface(
                         modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
+                            .clip(RoundedCornerShape(6.dp))
                             .clickable { onCopy() }
-                            .border(1.dp, ColorBorder, RoundedCornerShape(8.dp)),
-                        shape = RoundedCornerShape(8.dp),
+                            .border(1.dp, ColorBorder, RoundedCornerShape(6.dp)),
+                        shape = RoundedCornerShape(6.dp),
                         color = Color.White
                     ) {
                         Text(
-                            text = "Copy text",
+                            text = "Copy",
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Medium,
                             color = ColorTextPrimary,
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
                         )
                     }
 
                     Surface(
                         modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
+                            .clip(RoundedCornerShape(6.dp))
                             .clickable { onDelete() }
-                            .border(1.dp, Color(0xFFFFD9D9), RoundedCornerShape(8.dp)),
-                        shape = RoundedCornerShape(8.dp),
+                            .border(1.dp, Color(0xFFFFD9D9), RoundedCornerShape(6.dp)),
+                        shape = RoundedCornerShape(6.dp),
                         color = Color(0xFFFFF7F7)
                     ) {
                         Text(
@@ -487,7 +466,7 @@ fun SoftEditorPane(
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Medium,
                             color = Color(0xFFC62828),
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
                         )
                     }
                 }
@@ -500,9 +479,8 @@ fun SoftEditorPane(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 36.dp, vertical = 24.dp)
+                .padding(horizontal = 28.dp, vertical = 20.dp)
         ) {
-            // Note Title
             BasicTextField(
                 value = editTitle,
                 onValueChange = {
@@ -511,10 +489,10 @@ fun SoftEditorPane(
                 },
                 singleLine = true,
                 textStyle = TextStyle(
-                    fontSize = 24.sp,
+                    fontSize = 22.sp,
                     fontWeight = FontWeight.Bold,
                     color = ColorTextPrimary,
-                    letterSpacing = (-0.4).sp
+                    letterSpacing = (-0.3).sp
                 ),
                 cursorBrush = SolidColor(ColorBrand),
                 modifier = Modifier.fillMaxWidth(),
@@ -525,11 +503,11 @@ fun SoftEditorPane(
                     ) {
                         if (editTitle.isEmpty()) {
                             Text(
-                                text = "Untitled note",
-                                fontSize = 24.sp,
+                                text = "Title",
+                                fontSize = 22.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = ColorTextPlaceholder,
-                                letterSpacing = (-0.4).sp
+                                letterSpacing = (-0.3).sp
                             )
                         }
                         innerTextField()
@@ -537,11 +515,10 @@ fun SoftEditorPane(
                 }
             )
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(12.dp))
             HorizontalDivider(color = Color(0xFFF4F7FA), thickness = 1.dp)
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
-            // Note Content
             BasicTextField(
                 value = editContent,
                 onValueChange = {
@@ -549,8 +526,8 @@ fun SoftEditorPane(
                     onUpdate(editTitle, it)
                 },
                 textStyle = TextStyle(
-                    fontSize = 15.sp,
-                    lineHeight = 24.sp,
+                    fontSize = 14.sp,
+                    lineHeight = 22.sp,
                     color = ColorTextPrimary
                 ),
                 cursorBrush = SolidColor(ColorBrand),
@@ -562,9 +539,9 @@ fun SoftEditorPane(
                     ) {
                         if (editContent.isEmpty()) {
                             Text(
-                                text = "Write your thoughts securely here...",
-                                fontSize = 15.sp,
-                                lineHeight = 24.sp,
+                                text = "Note...",
+                                fontSize = 14.sp,
+                                lineHeight = 22.sp,
                                 color = ColorTextPlaceholder
                             )
                         }
@@ -577,20 +554,20 @@ fun SoftEditorPane(
 }
 
 @Composable
-fun SoftPairingDialog(
+fun CompactPairingDialog(
     onDismiss: () -> Unit,
     onCopyKey: () -> Unit
 ) {
     val keyBase64 = remember { CryptoManager.getKeyBase64() }
     val qrContent = remember { "SECURENOTE_KEY:$keyBase64" }
-    val qrMatrix = remember(qrContent) { CryptoManager.generateQrMatrix(qrContent, 220) }
+    val qrMatrix = remember(qrContent) { CryptoManager.generateQrMatrix(qrContent, 200) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
             Text(
-                text = "Pair with Mobile App",
-                fontSize = 16.sp,
+                text = "Pair",
+                fontSize = 15.sp,
                 fontWeight = FontWeight.Bold,
                 color = ColorTextPrimary
             )
@@ -599,24 +576,22 @@ fun SoftPairingDialog(
             Column(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(14.dp)
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 Text(
-                    text = "Scan this QR code from your phone or copy the key below to sync your notes securely over local Wi-Fi.",
-                    fontSize = 13.sp,
-                    color = ColorTextMuted,
-                    textAlign = TextAlign.Center,
-                    lineHeight = 18.sp
+                    text = "Scan QR or copy key",
+                    fontSize = 12.sp,
+                    color = ColorTextMuted
                 )
 
                 Surface(
-                    modifier = Modifier.size(220.dp),
-                    shape = RoundedCornerShape(14.dp),
+                    modifier = Modifier.size(200.dp),
+                    shape = RoundedCornerShape(12.dp),
                     color = Color.White,
                     border = androidx.compose.foundation.BorderStroke(1.dp, ColorBorder)
                 ) {
                     Canvas(
-                        modifier = Modifier.fillMaxSize().padding(12.dp)
+                        modifier = Modifier.fillMaxSize().padding(10.dp)
                     ) {
                         val cellW = size.width / qrMatrix.width.toFloat()
                         val cellH = size.height / qrMatrix.height.toFloat()
@@ -635,7 +610,7 @@ fun SoftPairingDialog(
                 }
 
                 Surface(
-                    shape = RoundedCornerShape(8.dp),
+                    shape = RoundedCornerShape(6.dp),
                     color = Color(0xFFF1F5F8),
                     modifier = Modifier.fillMaxWidth().clickable { onCopyKey() }
                 ) {
@@ -646,24 +621,24 @@ fun SoftPairingDialog(
                         color = ColorTextPrimary,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)
                     )
                 }
 
                 Surface(
                     modifier = Modifier
-                        .clip(RoundedCornerShape(8.dp))
+                        .clip(RoundedCornerShape(6.dp))
                         .clickable { onCopyKey() }
-                        .border(1.dp, ColorBrand, RoundedCornerShape(8.dp)),
-                    shape = RoundedCornerShape(8.dp),
+                        .border(1.dp, ColorBrand, RoundedCornerShape(6.dp)),
+                    shape = RoundedCornerShape(6.dp),
                     color = Color.White
                 ) {
                     Text(
-                        text = "Copy secret key",
+                        text = "Copy key",
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Medium,
                         color = ColorBrand,
-                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp)
                     )
                 }
             }
@@ -671,17 +646,17 @@ fun SoftPairingDialog(
         confirmButton = {
             Surface(
                 modifier = Modifier
-                    .clip(RoundedCornerShape(8.dp))
+                    .clip(RoundedCornerShape(6.dp))
                     .clickable { onDismiss() },
-                shape = RoundedCornerShape(8.dp),
+                shape = RoundedCornerShape(6.dp),
                 color = ColorBrand
             ) {
                 Text(
                     text = "Done",
-                    fontSize = 12.sp,
+                    fontSize = 11.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = Color.White,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
                 )
             }
         }
