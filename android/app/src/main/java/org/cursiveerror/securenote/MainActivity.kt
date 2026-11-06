@@ -8,6 +8,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -21,8 +22,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
@@ -108,7 +111,8 @@ fun NoteScreen() {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 18.dp, vertical = 12.dp),
+                            .height(52.dp)
+                            .padding(horizontal = 16.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -127,23 +131,29 @@ fun NoteScreen() {
                             // Pair button
                             Surface(
                                 modifier = Modifier
+                                    .height(32.dp)
                                     .clip(RoundedCornerShape(8.dp))
                                     .clickable { showPairingDialog = true }
                                     .border(1.dp, if (isPaired) ColorSuccess else ColorBorder, RoundedCornerShape(8.dp)),
                                 color = if (isPaired) ColorSuccessBg else Color.White
                             ) {
-                                Text(
-                                    text = if (isPaired) "Paired" else "Pair",
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Medium,
-                                    color = if (isPaired) ColorSuccess else ColorBrand,
-                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
-                                )
+                                Box(
+                                    modifier = Modifier.fillMaxHeight().padding(horizontal = 10.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = if (isPaired) "Paired" else "Pair",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        color = if (isPaired) ColorSuccess else ColorBrand
+                                    )
+                                }
                             }
 
                             // Sync button
                             Surface(
                                 modifier = Modifier
+                                    .height(32.dp)
                                     .clip(RoundedCornerShape(8.dp))
                                     .clickable(enabled = !isSyncing) {
                                         if (isSyncing) return@clickable
@@ -168,13 +178,17 @@ fun NoteScreen() {
                                     },
                                 color = ColorBrand
                             ) {
-                                Text(
-                                    text = if (isSyncing) "Syncing..." else "Sync",
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = Color.White,
-                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp)
-                                )
+                                Box(
+                                    modifier = Modifier.fillMaxHeight().padding(horizontal = 12.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = if (isSyncing) "Syncing..." else "Sync",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = Color.White
+                                    )
+                                }
                             }
                         }
                     }
@@ -186,7 +200,7 @@ fun NoteScreen() {
         floatingActionButton = {
             Surface(
                 modifier = Modifier
-                    .size(50.dp)
+                    .size(52.dp)
                     .clip(RoundedCornerShape(14.dp))
                     .clickable { showCreateDialog = true }
                     .padding(bottom = 2.dp),
@@ -198,12 +212,26 @@ fun NoteScreen() {
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        text = "+",
-                        fontSize = 26.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White
-                    )
+                    Canvas(modifier = Modifier.size(16.dp)) {
+                        val stroke = 2.5.dp.toPx()
+                        val cx = size.width / 2f
+                        val cy = size.height / 2f
+                        val half = size.width / 2f
+                        drawLine(
+                            color = Color.White,
+                            start = Offset(cx - half, cy),
+                            end = Offset(cx + half, cy),
+                            strokeWidth = stroke,
+                            cap = StrokeCap.Round
+                        )
+                        drawLine(
+                            color = Color.White,
+                            start = Offset(cx, cy - half),
+                            end = Offset(cx, cy + half),
+                            strokeWidth = stroke,
+                            cap = StrokeCap.Round
+                        )
+                    }
                 }
             }
         }
@@ -213,8 +241,8 @@ fun NoteScreen() {
                 .fillMaxSize()
                 .padding(innerPadding)
                 .background(ColorBackground)
-                .padding(horizontal = 14.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+                .padding(horizontal = 16.dp, vertical = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             // Status bar message banner
             AnimatedVisibility(visible = statusMessage.isNotEmpty()) {

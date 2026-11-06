@@ -20,6 +20,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
@@ -137,86 +138,53 @@ fun DesktopApp(
                             .fillMaxHeight()
                             .background(ColorSidebar)
                     ) {
-                        // Header: Brand & Actions
-                        Column(
+                        // Header Row: Brand Title + Aligned Action Buttons (Pair & +)
+                        Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 14.dp, vertical = 12.dp)
+                                .height(52.dp)
+                                .padding(horizontal = 16.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = "SecureNote",
-                                    fontSize = 17.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = ColorTextPrimary,
-                                    letterSpacing = (-0.3).sp
-                                )
+                            Text(
+                                text = "SecureNote",
+                                fontSize = 17.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = ColorTextPrimary,
+                                letterSpacing = (-0.3).sp
+                            )
 
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                // Pair button
                                 Surface(
                                     modifier = Modifier
+                                        .height(30.dp)
                                         .clip(RoundedCornerShape(8.dp))
                                         .clickable { showPairingDialog = true }
                                         .border(1.dp, ColorBorder, RoundedCornerShape(8.dp)),
                                     color = Color.White
                                 ) {
-                                    Text(
-                                        text = "Pair",
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Medium,
-                                        color = ColorBrand,
-                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                                    )
-                                }
-                            }
-
-                            Spacer(modifier = Modifier.height(10.dp))
-
-                            // Search bar + compact '+' button row
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                BasicTextField(
-                                    value = searchQuery,
-                                    onValueChange = { searchQuery = it },
-                                    singleLine = true,
-                                    textStyle = TextStyle(
-                                        fontSize = 12.sp,
-                                        color = ColorTextPrimary
-                                    ),
-                                    cursorBrush = SolidColor(ColorBrand),
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .height(34.dp)
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .background(Color.White)
-                                        .border(1.dp, ColorBorder, RoundedCornerShape(8.dp))
-                                        .padding(horizontal = 10.dp),
-                                    decorationBox = { innerTextField ->
-                                        Box(
-                                            contentAlignment = Alignment.CenterStart,
-                                            modifier = Modifier.fillMaxSize()
-                                        ) {
-                                            if (searchQuery.isEmpty()) {
-                                                Text(
-                                                    text = "Search...",
-                                                    fontSize = 12.sp,
-                                                    color = ColorTextPlaceholder
-                                                )
-                                            }
-                                            innerTextField()
-                                        }
+                                    Box(
+                                        modifier = Modifier.fillMaxHeight().padding(horizontal = 10.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = "Pair",
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Medium,
+                                            color = ColorBrand
+                                        )
                                     }
-                                )
+                                }
 
+                                // Geometric, perfectly centered '+' button
                                 Surface(
                                     modifier = Modifier
-                                        .size(34.dp)
+                                        .size(30.dp)
                                         .clip(RoundedCornerShape(8.dp))
                                         .clickable {
                                             onAddNote("Untitled", "")
@@ -228,20 +196,75 @@ fun DesktopApp(
                                         modifier = Modifier.fillMaxSize(),
                                         contentAlignment = Alignment.Center
                                     ) {
-                                        Text(
-                                            text = "+",
-                                            color = Color.White,
-                                            fontSize = 18.sp,
-                                            fontWeight = FontWeight.Bold
-                                        )
+                                        Canvas(modifier = Modifier.size(12.dp)) {
+                                            val stroke = 2.dp.toPx()
+                                            val cx = size.width / 2f
+                                            val cy = size.height / 2f
+                                            val half = size.width / 2f
+                                            drawLine(
+                                                color = Color.White,
+                                                start = Offset(cx - half, cy),
+                                                end = Offset(cx + half, cy),
+                                                strokeWidth = stroke,
+                                                cap = StrokeCap.Round
+                                            )
+                                            drawLine(
+                                                color = Color.White,
+                                                start = Offset(cx, cy - half),
+                                                end = Offset(cx, cy + half),
+                                                strokeWidth = stroke,
+                                                cap = StrokeCap.Round
+                                            )
+                                        }
                                     }
                                 }
                             }
                         }
 
+                        // Full-width Search Bar (strictly aligned to 16dp horizontal padding)
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp)
+                                .padding(bottom = 10.dp)
+                        ) {
+                            BasicTextField(
+                                value = searchQuery,
+                                onValueChange = { searchQuery = it },
+                                singleLine = true,
+                                textStyle = TextStyle(
+                                    fontSize = 12.sp,
+                                    color = ColorTextPrimary
+                                ),
+                                cursorBrush = SolidColor(ColorBrand),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(34.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(Color.White)
+                                    .border(1.dp, ColorBorder, RoundedCornerShape(8.dp))
+                                    .padding(horizontal = 10.dp),
+                                decorationBox = { innerTextField ->
+                                    Box(
+                                        contentAlignment = Alignment.CenterStart,
+                                        modifier = Modifier.fillMaxSize()
+                                    ) {
+                                        if (searchQuery.isEmpty()) {
+                                            Text(
+                                                text = "Search...",
+                                                fontSize = 12.sp,
+                                                color = ColorTextPlaceholder
+                                            )
+                                        }
+                                        innerTextField()
+                                    }
+                                }
+                            )
+                        }
+
                         HorizontalDivider(color = ColorBorder, thickness = 1.dp)
 
-                        // Notes List
+                        // Notes List (strictly aligned to 16dp horizontal padding)
                         if (filteredNotes.isEmpty()) {
                             Box(
                                 modifier = Modifier.fillMaxSize().padding(20.dp),
@@ -256,8 +279,8 @@ fun DesktopApp(
                         } else {
                             LazyColumn(
                                 modifier = Modifier.fillMaxSize(),
-                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp),
-                                verticalArrangement = Arrangement.spacedBy(3.dp)
+                                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                                verticalArrangement = Arrangement.spacedBy(4.dp)
                             ) {
                                 items(filteredNotes, key = { it.id }) { note ->
                                     val isSelected = note.id == selectedNoteId
@@ -369,7 +392,7 @@ fun CompactNoteItem(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 8.dp)
+                .padding(horizontal = 12.dp, vertical = 9.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -419,9 +442,9 @@ fun CompactEditorPane(
     val formattedDate = remember(note.timestamp) { dateFormat.format(Date(note.timestamp)) }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        // Toolbar
+        // Toolbar (aligned height with sidebar header: 52dp)
         Surface(
-            modifier = Modifier.fillMaxWidth().height(44.dp),
+            modifier = Modifier.fillMaxWidth().height(52.dp),
             color = Color.White
         ) {
             Row(
@@ -435,45 +458,56 @@ fun CompactEditorPane(
                     color = ColorTextMuted
                 )
 
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
                     Surface(
                         modifier = Modifier
-                            .clip(RoundedCornerShape(6.dp))
+                            .height(30.dp)
+                            .clip(RoundedCornerShape(8.dp))
                             .clickable { onCopy() }
-                            .border(1.dp, ColorBorder, RoundedCornerShape(6.dp)),
-                        shape = RoundedCornerShape(6.dp),
+                            .border(1.dp, ColorBorder, RoundedCornerShape(8.dp)),
                         color = Color.White
                     ) {
-                        Text(
-                            text = "Copy",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = ColorTextPrimary,
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                        )
+                        Box(
+                            modifier = Modifier.fillMaxHeight().padding(horizontal = 12.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "Copy",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = ColorTextPrimary
+                            )
+                        }
                     }
 
                     Surface(
                         modifier = Modifier
-                            .clip(RoundedCornerShape(6.dp))
+                            .height(30.dp)
+                            .clip(RoundedCornerShape(8.dp))
                             .clickable { onDelete() }
-                            .border(1.dp, Color(0xFFFFD9D9), RoundedCornerShape(6.dp)),
-                        shape = RoundedCornerShape(6.dp),
+                            .border(1.dp, Color(0xFFFFD9D9), RoundedCornerShape(8.dp)),
                         color = Color(0xFFFFF7F7)
                     ) {
-                        Text(
-                            text = "Delete",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = Color(0xFFC62828),
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                        )
+                        Box(
+                            modifier = Modifier.fillMaxHeight().padding(horizontal = 12.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "Delete",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = Color(0xFFC62828)
+                            )
+                        }
                     }
                 }
             }
         }
 
-        HorizontalDivider(color = Color(0xFFF0F4F7), thickness = 1.dp)
+        HorizontalDivider(color = ColorBorder, thickness = 1.dp)
 
         // Workspace
         Column(
