@@ -4,13 +4,13 @@ plugins {
 }
 
 android {
-    namespace = "com.example.securenote"
+    namespace = "org.cursiveerror.securenote"
     compileSdk {
         version = release(37)
     }
 
     defaultConfig {
-        applicationId = "com.example.securenote"
+        applicationId = "org.cursiveerror.securenote"
         minSdk = 26
         targetSdk = 37
         versionCode = 1
