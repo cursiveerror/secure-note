@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/securenote_githubicon.svg" width="120" alt="SecureNote Logo" />
+  <img src="assets/securenote_githubicon.svg" width="64" alt="SecureNote Logo" />
 </p>
 
 <h1 align="center">SecureNote</h1>
