@@ -8,18 +8,15 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
@@ -101,42 +98,40 @@ fun NoteScreen() {
                     Text(
                         text = "SecureNote",
                         fontWeight = FontWeight.Bold,
-                        fontSize = 20.sp
+                        fontSize = 19.sp
                     )
                 },
                 actions = {
-                    // Lock / Pairing status button
                     OutlinedButton(
                         onClick = { showPairingDialog = true },
-                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                        modifier = Modifier.height(36.dp)
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
+                        modifier = Modifier.height(34.dp)
                     ) {
                         Text(
-                            text = if (isPaired) "🔐 AES-256" else "🔑 Pair PC",
+                            text = if (isPaired) "AES-256" else "Pair PC",
                             fontSize = 12.sp,
-                            fontWeight = FontWeight.SemiBold,
+                            fontWeight = FontWeight.Medium,
                             color = if (isPaired) Color(0xFF2E7D32) else MaterialTheme.colorScheme.primary
                         )
                     }
 
-                    Spacer(modifier = Modifier.width(8.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
 
-                    // 2-Way Sync button
                     FilledTonalButton(
                         onClick = {
                             if (isSyncing) return@FilledTonalButton
                             isSyncing = true
-                            statusMessage = "Discovering PC on local Wi-Fi..."
+                            statusMessage = "Searching for PC in local Wi-Fi..."
 
                             scope.launch {
                                 val serverIp = discoverServerIp(context)
                                 if (serverIp == null) {
-                                    statusMessage = "PC not found. Ensure both devices are on the same Wi-Fi."
+                                    statusMessage = "PC not found. Make sure both devices are on the same Wi-Fi."
                                     isSyncing = false
                                     return@launch
                                 }
 
-                                statusMessage = "Connected to $serverIp! Synchronizing notes..."
+                                statusMessage = "Found PC at $serverIp. Syncing..."
                                 val (mergedList, syncMsg) = syncNotesWithServer(context, notes, serverIp)
                                 saveLocalNotes(context, mergedList)
                                 notes = mergedList
@@ -145,17 +140,17 @@ fun NoteScreen() {
                             }
                         },
                         enabled = !isSyncing,
-                        modifier = Modifier.height(36.dp),
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                        modifier = Modifier.height(34.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 2.dp)
                     ) {
                         Text(
-                            text = if (isSyncing) "Syncing..." else "Sync 🔄",
+                            text = if (isSyncing) "Syncing..." else "Sync",
                             fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.SemiBold
                         )
                     }
 
-                    Spacer(modifier = Modifier.width(8.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface
@@ -168,7 +163,7 @@ fun NoteScreen() {
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary
             ) {
-                Text("+", fontSize = 28.sp, fontWeight = FontWeight.Light)
+                Text("+", fontSize = 26.sp, fontWeight = FontWeight.Normal)
             }
         }
     ) { innerPadding ->
@@ -176,18 +171,18 @@ fun NoteScreen() {
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+                .padding(horizontal = 16.dp, vertical = 6.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             // Status bar message banner
             AnimatedVisibility(visible = statusMessage.isNotEmpty()) {
                 Surface(
                     color = MaterialTheme.colorScheme.primaryContainer,
-                    shape = RoundedCornerShape(10.dp),
+                    shape = RoundedCornerShape(8.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Row(
-                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
@@ -197,25 +192,26 @@ fun NoteScreen() {
                             color = MaterialTheme.colorScheme.onPrimaryContainer,
                             modifier = Modifier.weight(1f)
                         )
-                        Text(
-                            text = "✕",
-                            modifier = Modifier
-                                .clickable { statusMessage = "" }
-                                .padding(start = 8.dp),
-                            color = MaterialTheme.colorScheme.onPrimaryContainer
-                        )
+                        TextButton(
+                            onClick = { statusMessage = "" },
+                            contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp),
+                            modifier = Modifier.height(28.dp)
+                        ) {
+                            Text("Dismiss", fontSize = 11.sp)
+                        }
                     }
                 }
             }
 
-            // Search textfield
+            // Search bar
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = { searchQuery = it },
-                placeholder = { Text("Search saved notes...") },
-                modifier = Modifier.fillMaxWidth(),
+                placeholder = { Text("Search notes...", fontSize = 13.sp) },
+                modifier = Modifier.fillMaxWidth().height(48.dp),
                 singleLine = true,
-                shape = RoundedCornerShape(12.dp)
+                shape = RoundedCornerShape(10.dp),
+                textStyle = LocalTextStyle.current.copy(fontSize = 13.sp)
             )
 
             // Notes list or empty state
@@ -228,12 +224,12 @@ fun NoteScreen() {
                         Text(
                             text = if (searchQuery.isNotBlank()) "No notes match search" else "No notes yet",
                             style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold,
+                            fontWeight = FontWeight.Medium,
                             color = Color.Gray
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = if (searchQuery.isNotBlank()) "Try another keyword" else "Tap the '+' button below to write your first note!",
+                            text = if (searchQuery.isNotBlank()) "Try another keyword" else "Tap '+' to create your first note.",
                             style = MaterialTheme.typography.bodySmall,
                             color = Color.DarkGray
                         )
@@ -242,8 +238,8 @@ fun NoteScreen() {
             } else {
                 LazyColumn(
                     modifier = Modifier.weight(1f).fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                    contentPadding = PaddingValues(bottom = 80.dp)
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    contentPadding = PaddingValues(bottom = 88.dp)
                 ) {
                     items(filteredNotes, key = { it.id }) { note ->
                         NoteCardItem(
@@ -288,7 +284,7 @@ fun NoteScreen() {
                         value = newContent,
                         onValueChange = { newContent = it },
                         label = { Text("Content") },
-                        modifier = Modifier.fillMaxWidth().height(160.dp),
+                        modifier = Modifier.fillMaxWidth().height(150.dp),
                         maxLines = 8
                     )
                 }
@@ -307,7 +303,7 @@ fun NoteScreen() {
                             saveLocalNotes(context, updated)
                             notes = updated
                             showCreateDialog = false
-                            statusMessage = "Note saved locally. Tap 'Sync' to push to PC."
+                            statusMessage = "Note saved locally"
                         }
                     }
                 ) {
@@ -322,7 +318,7 @@ fun NoteScreen() {
         )
     }
 
-    // Dialog for viewing and editing existing note
+    // Dialog for viewing and editing note
     selectedNote?.let { currentNote ->
         var editTitle by remember(currentNote) { mutableStateOf(currentNote.title) }
         var editContent by remember(currentNote) { mutableStateOf(currentNote.content) }
@@ -343,7 +339,7 @@ fun NoteScreen() {
                         value = editContent,
                         onValueChange = { editContent = it },
                         label = { Text("Content") },
-                        modifier = Modifier.fillMaxWidth().height(160.dp),
+                        modifier = Modifier.fillMaxWidth().height(150.dp),
                         maxLines = 8
                     )
                 }
@@ -384,19 +380,19 @@ fun NoteScreen() {
 
         AlertDialog(
             onDismissRequest = { showPairingDialog = false },
-            title = { Text("PC Pairing (AES-256)", fontWeight = FontWeight.Bold) },
+            title = { Text("Device Pairing", fontWeight = FontWeight.Bold) },
             text = {
                 Column(
                     modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     Text(
-                        text = "Scan the QR code from the PC app ('Pair Phone' button) or paste the key below:",
-                        style = MaterialTheme.typography.bodyMedium
+                        text = "Scan the QR code displayed in the PC app ('Pair Device') or enter the key manually below:",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.DarkGray
                     )
 
-                    // One-tap Google QR Scanner button
-                    FilledTonalButton(
+                    Button(
                         onClick = {
                             try {
                                 val scanner = GmsBarcodeScanning.getClient(context)
@@ -407,35 +403,35 @@ fun NoteScreen() {
                                             CryptoManager.saveKey(context, rawValue)
                                             isPaired = true
                                             showPairingDialog = false
-                                            statusMessage = "Paired via QR Code! AES-256-GCM active."
+                                            statusMessage = "Paired with PC via QR Code. AES-256 active."
                                         }
                                     }
                                     .addOnFailureListener { e ->
                                         Toast.makeText(context, "Scanner: ${e.message}", Toast.LENGTH_SHORT).show()
                                     }
                             } catch (e: Exception) {
-                                Toast.makeText(context, "Could not open scanner: ${e.message}", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, "Scanner error: ${e.message}", Toast.LENGTH_SHORT).show()
                             }
                         },
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text("📷 Scan QR Code from PC")
+                        Text("Scan QR Code")
                     }
 
                     OutlinedTextField(
                         value = inputKey,
                         onValueChange = { inputKey = it },
-                        label = { Text("Or paste Key manually") },
+                        label = { Text("Pairing Key") },
                         modifier = Modifier.fillMaxWidth(),
                         minLines = 2,
-                        maxLines = 4
+                        maxLines = 3
                     )
 
                     if (isPaired) {
                         Text(
-                            text = "Status: Encrypted with AES-256-GCM",
+                            text = "Status: AES-256-GCM Encrypted",
                             color = Color(0xFF2E7D32),
-                            fontWeight = FontWeight.SemiBold,
+                            fontWeight = FontWeight.Medium,
                             style = MaterialTheme.typography.bodySmall
                         )
                     }
@@ -448,7 +444,7 @@ fun NoteScreen() {
                             CryptoManager.saveKey(context, inputKey)
                             isPaired = true
                             showPairingDialog = false
-                            statusMessage = "Paired with PC! AES-256 encryption active."
+                            statusMessage = "Paired with PC. AES-256 active."
                         }
                     }
                 ) {
@@ -487,13 +483,14 @@ fun NoteCardItem(
     val dateFormat = remember { SimpleDateFormat("dd MMM, HH:mm", Locale.getDefault()) }
     val formattedDate = remember(note.timestamp) { dateFormat.format(Date(note.timestamp)) }
 
-    ElevatedCard(
+    Card(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onClick() },
-        shape = RoundedCornerShape(12.dp)
+        shape = RoundedCornerShape(10.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
     ) {
-        Column(modifier = Modifier.fillMaxWidth().padding(14.dp)) {
+        Column(modifier = Modifier.fillMaxWidth().padding(12.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -508,22 +505,21 @@ fun NoteCardItem(
                     modifier = Modifier.weight(1f)
                 )
 
-                // Sync status indicator badge
                 Surface(
                     color = if (note.isSynced) Color(0xFFE8F5E9) else Color(0xFFFFF3E0),
-                    shape = RoundedCornerShape(6.dp)
+                    shape = RoundedCornerShape(4.dp)
                 ) {
                     Text(
-                        text = if (note.isSynced) "Synced" else "Local only",
+                        text = if (note.isSynced) "Synced" else "Local",
                         color = if (note.isSynced) Color(0xFF2E7D32) else Color(0xFFE65100),
                         fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
+                        fontWeight = FontWeight.Medium,
                         modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(3.dp))
 
             Text(
                 text = formattedDate,
@@ -534,13 +530,13 @@ fun NoteCardItem(
             Spacer(modifier = Modifier.height(6.dp))
 
             Text(
-                text = note.content,
+                text = note.content.ifBlank { "Empty note" },
                 style = MaterialTheme.typography.bodyMedium,
                 maxLines = 3,
                 overflow = TextOverflow.Ellipsis
             )
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(6.dp))
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -549,26 +545,28 @@ fun NoteCardItem(
             ) {
                 TextButton(
                     onClick = onCopy,
-                    contentPadding = PaddingValues(horizontal = 8.dp)
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                    modifier = Modifier.height(30.dp)
                 ) {
-                    Text("Copy")
+                    Text("Copy", fontSize = 12.sp)
                 }
 
                 TextButton(
                     onClick = onDelete,
-                    contentPadding = PaddingValues(horizontal = 8.dp),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                    modifier = Modifier.height(30.dp),
                     colors = ButtonDefaults.textButtonColors(
                         contentColor = MaterialTheme.colorScheme.error
                     )
                 ) {
-                    Text("Delete")
+                    Text("Delete", fontSize = 12.sp)
                 }
             }
         }
     }
 }
 
-// 📡 UDP Broadcast Auto-Discovery
+// UDP Broadcast Auto-Discovery
 suspend fun discoverServerIp(context: Context): String? = withContext(Dispatchers.IO) {
     var socket: DatagramSocket? = null
     var multicastLock: WifiManager.MulticastLock? = null
@@ -609,7 +607,7 @@ suspend fun discoverServerIp(context: Context): String? = withContext(Dispatcher
     null
 }
 
-// 🔄 Two-Way LAN Synchronization
+// Two-Way LAN Synchronization
 suspend fun syncNotesWithServer(context: Context, currentNotes: List<Note>, serverIp: String): Pair<List<Note>, String> {
     return withContext(Dispatchers.IO) {
         var pushedCount = 0
@@ -632,11 +630,11 @@ suspend fun syncNotesWithServer(context: Context, currentNotes: List<Note>, serv
         // Phase 2: Pull all notes from PC
         val (pulledNotes, pullSuccess) = fetchNotesFromHost(serverIp, context)
         if (!pullSuccess) {
-            val msg = if (pushedCount > 0) "Sent $pushedCount note(s) to PC." else "Failed to connect to PC."
+            val msg = if (pushedCount > 0) "Sent $pushedCount note(s) to PC." else "Could not reach PC server."
             return@withContext Pair(afterPushList, msg)
         }
 
-        // Phase 3: Merge notes
+        // Phase 3: Merge notes by timestamp
         val noteMap = afterPushList.associateBy { it.id }.toMutableMap()
         var newFromPcCount = 0
 
@@ -653,7 +651,7 @@ suspend fun syncNotesWithServer(context: Context, currentNotes: List<Note>, serv
         }
 
         val mergedList = noteMap.values.sortedByDescending { it.timestamp }
-        val finalMsg = "Synced! Sent $pushedCount note(s), received $newFromPcCount new from PC."
+        val finalMsg = "Sync complete. Sent $pushedCount, received $newFromPcCount from PC."
         Pair(mergedList, finalMsg)
     }
 }

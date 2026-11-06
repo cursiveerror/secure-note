@@ -64,7 +64,7 @@ class SyncServer(
                                     val iv = json.getString("iv")
                                     val data = json.getString("data")
                                     val decryptedText = CryptoManager.decrypt(data, iv)
-                                    println("🔐 Decrypted incoming note via AES-256-GCM successfully!")
+                                    println("[Crypto] Decrypted incoming note via AES-256-GCM successfully.")
                                     JSONObject(decryptedText)
                                 } else {
                                     json
@@ -111,7 +111,7 @@ class SyncServer(
                             exchange.sendResponseHeaders(405, -1)
                         }
                     } catch (e: AEADBadTagException) {
-                        println("❌ Decryption failed: invalid key or tampered data!")
+                        println("[Crypto] Decryption failed: invalid key or tampered data.")
                         val errorResp = """{"error":"Decryption failed: invalid key"}""".toByteArray(Charsets.UTF_8)
                         exchange.sendResponseHeaders(401, errorResp.size.toLong())
                         exchange.responseBody.use { it.write(errorResp) }
@@ -126,7 +126,7 @@ class SyncServer(
 
             server.start()
             httpServer = server
-            println("HTTP Server started on port $httpPort (AES-256-GCM enabled)")
+            println("[Server] HTTP Server started on port $httpPort (AES-256-GCM enabled).")
         } catch (e: Exception) {
             println("Failed to start HTTP server: ${e.message}")
         }
@@ -160,7 +160,7 @@ class SyncServer(
                             packet.port
                         )
                         socket.send(replyPacket)
-                        println("UDP Auto-discovery: phone detected at ${packet.address.hostAddress}! Replied with ACK.")
+                        println("[Discovery] Device detected at ${packet.address.hostAddress}. Replied with ACK.")
                     }
                 }
             } catch (e: Exception) {
