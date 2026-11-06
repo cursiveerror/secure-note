@@ -9,6 +9,14 @@ android/local.properties
 *.iml
 .DS_Store
 
+# Keystore & Signing
+*.jks
+*.keystore
+
+# Local Releases
+release/
+*.apk
+
 # Python
 __pycache__/
 *.pyc
