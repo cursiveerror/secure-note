@@ -28,6 +28,7 @@ compose.desktop {
             packageVersion = "1.0.0"
             description = "SecureNote Desktop LAN Sync"
             copyright = "© 2026 CursiveError"
+            appResourcesRootDir.set(project.layout.projectDirectory.dir("resources"))
         }
     }
 }

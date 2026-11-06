@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Include>
+  <WixVariable Id="WixUIDialogBmp" Value="$(var.JpConfigDir)\dialog.bmp" />
+  <WixVariable Id="WixUIBannerBmp" Value="$(var.JpConfigDir)\banner.bmp" />
+</Include>
