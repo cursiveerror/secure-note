@@ -11,6 +11,7 @@ import java.net.Inet4Address
 import java.net.InetSocketAddress
 import java.net.NetworkInterface
 import java.util.concurrent.Executors
+import javax.crypto.AEADBadTagException
 import kotlin.concurrent.thread
 
 class SyncServer(
@@ -27,6 +28,7 @@ class SyncServer(
         if (isRunning) return
         isRunning = true
 
+        CryptoManager.getOrGenerateKey()
         startHttpServer()
         startUdpDiscovery()
     }
@@ -58,9 +60,19 @@ class SyncServer(
                             val bodyText = String(bodyBytes, Charsets.UTF_8).trim()
                             if (bodyText.isNotEmpty()) {
                                 val json = JSONObject(bodyText)
-                                val title = json.optString("title", "Untitled")
-                                val content = json.optString("content", "")
-                                val id = json.optString("id", java.util.UUID.randomUUID().toString())
+                                val finalJson: JSONObject = if (json.has("iv") && json.has("data")) {
+                                    val iv = json.getString("iv")
+                                    val data = json.getString("data")
+                                    val decryptedText = CryptoManager.decrypt(data, iv)
+                                    println("🔐 Decrypted incoming note via AES-256-GCM successfully!")
+                                    JSONObject(decryptedText)
+                                } else {
+                                    json
+                                }
+
+                                val title = finalJson.optString("title", "Untitled")
+                                val content = finalJson.optString("content", "")
+                                val id = finalJson.optString("id", java.util.UUID.randomUUID().toString())
                                 val note = Note(id = id, title = title, content = content)
                                 onNoteReceived(note)
                             }
@@ -86,6 +98,11 @@ class SyncServer(
                         } else {
                             exchange.sendResponseHeaders(405, -1)
                         }
+                    } catch (e: AEADBadTagException) {
+                        println("❌ Decryption failed: invalid key or tampered data!")
+                        val errorResp = """{"error":"Decryption failed: invalid key"}""".toByteArray(Charsets.UTF_8)
+                        exchange.sendResponseHeaders(401, errorResp.size.toLong())
+                        exchange.responseBody.use { it.write(errorResp) }
                     } catch (e: Exception) {
                         e.printStackTrace()
                         val errorResp = """{"error":"${e.message}"}""".toByteArray(Charsets.UTF_8)
@@ -97,7 +114,7 @@ class SyncServer(
 
             server.start()
             httpServer = server
-            println("HTTP Server started on port $httpPort")
+            println("HTTP Server started on port $httpPort (AES-256-GCM enabled)")
         } catch (e: Exception) {
             println("Failed to start HTTP server: ${e.message}")
         }
@@ -155,7 +172,6 @@ class SyncServer(
                         val address = addresses.nextElement()
                         if (!address.isLoopbackAddress && address is Inet4Address) {
                             val ip = address.hostAddress
-                            // Prefer standard private LAN IP subnets (192.168.x.x, 10.x.x.x, 172.16.x.x)
                             if (ip.startsWith("192.168.") || ip.startsWith("10.") || ip.startsWith("172.")) {
                                 return ip
                             }

@@ -1,6 +1,7 @@
 package org.cursiveerror.securenote
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -17,11 +18,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -38,6 +40,7 @@ fun DesktopApp(
     val clipboardManager = LocalClipboardManager.current
     var searchQuery by remember { mutableStateOf("") }
     var showAddDialog by remember { mutableStateOf(false) }
+    var showPairingDialog by remember { mutableStateOf(false) }
     var editingNote by remember { mutableStateOf<Note?>(null) }
     var notificationMessage by remember { mutableStateOf<String?>(null) }
 
@@ -92,7 +95,7 @@ fun DesktopApp(
                                     )
                                     Spacer(modifier = Modifier.width(6.dp))
                                     Text(
-                                        text = "Sync Server active: http://$serverIp:8000 (UDP Discovery: 8888)",
+                                        text = "Sync Server: http://$serverIp:8000 (AES-256-GCM Active)",
                                         style = MaterialTheme.typography.bodySmall,
                                         color = Color(0xFF2E7D32),
                                         fontWeight = FontWeight.Medium
@@ -100,13 +103,23 @@ fun DesktopApp(
                                 }
                             }
 
-                            Button(
-                                onClick = { showAddDialog = true },
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = MaterialTheme.colorScheme.primary
-                                )
-                            ) {
-                                Text("+ New Note", fontWeight = FontWeight.SemiBold)
+                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                OutlinedButton(
+                                    onClick = { showPairingDialog = true },
+                                    shape = RoundedCornerShape(10.dp)
+                                ) {
+                                    Text("Pair Phone (QR)")
+                                }
+
+                                Button(
+                                    onClick = { showAddDialog = true },
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = MaterialTheme.colorScheme.primary
+                                    ),
+                                    shape = RoundedCornerShape(10.dp)
+                                ) {
+                                    Text("+ New Note", fontWeight = FontWeight.SemiBold)
+                                }
                             }
                         }
 
@@ -145,7 +158,7 @@ fun DesktopApp(
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = if (searchQuery.isNotBlank()) "Try searching for a different keyword" else "Open SecureNote on your Android phone on the same Wi-Fi and tap 'Sync with PC'!",
+                            text = if (searchQuery.isNotBlank()) "Try searching for a different keyword" else "Open SecureNote on your Android phone, pair via QR code, and tap 'Sync with PC'!",
                             style = MaterialTheme.typography.bodyMedium,
                             color = Color.DarkGray
                         )
@@ -194,6 +207,18 @@ fun DesktopApp(
             }
         }
 
+        // Dialog for Pairing / QR Code
+        if (showPairingDialog) {
+            PairingDialog(
+                onDismiss = { showPairingDialog = false },
+                onCopyKey = {
+                    val key = CryptoManager.getKeyBase64()
+                    clipboardManager.setText(AnnotatedString(key))
+                    notificationMessage = "Pairing Key copied!"
+                }
+            )
+        }
+
         // Dialog for adding a new note
         if (showAddDialog) {
             NoteEditDialog(
@@ -224,6 +249,95 @@ fun DesktopApp(
             )
         }
     }
+}
+
+@Composable
+fun PairingDialog(
+    onDismiss: () -> Unit,
+    onCopyKey: () -> Unit
+) {
+    val keyBase64 = remember { CryptoManager.getKeyBase64() }
+    val qrContent = remember { "SECURENOTE_KEY:$keyBase64" }
+    val qrMatrix = remember(qrContent) { CryptoManager.generateQrMatrix(qrContent, 260) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text("Pair Android Device", fontWeight = FontWeight.Bold)
+        },
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text(
+                    text = "Scan this QR code in the SecureNote Android app to establish end-to-end AES-256 encrypted sync.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    textAlign = TextAlign.Center,
+                    color = Color.DarkGray
+                )
+
+                Surface(
+                    modifier = Modifier.size(260.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color.White,
+                    shadowElevation = 3.dp
+                ) {
+                    androidx.compose.foundation.Canvas(
+                        modifier = Modifier.fillMaxSize().padding(14.dp)
+                    ) {
+                        val cellW = size.width / qrMatrix.width
+                        val cellH = size.height / qrMatrix.height
+                        for (x in 0 until qrMatrix.width) {
+                            for (y in 0 until qrMatrix.height) {
+                                if (qrMatrix.get(x, y)) {
+                                    drawRect(
+                                        color = Color.Black,
+                                        topLeft = androidx.compose.ui.geometry.Offset(x * cellW, y * cellH),
+                                        size = androidx.compose.ui.geometry.Size(cellW, cellH)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Text(
+                    text = "Or copy pairing key manually:",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = Color.Gray
+                )
+
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = Color(0xFFF0F2F5),
+                    modifier = Modifier.fillMaxWidth().clickable { onCopyKey() }
+                ) {
+                    Text(
+                        text = keyBase64,
+                        style = MaterialTheme.typography.bodySmall,
+                        fontFamily = FontFamily.Monospace,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                    )
+                }
+
+                OutlinedButton(
+                    onClick = onCopyKey,
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text("Copy Key")
+                }
+            }
+        },
+        confirmButton = {
+            Button(onClick = onDismiss) {
+                Text("Done")
+            }
+        }
+    )
 }
 
 @Composable

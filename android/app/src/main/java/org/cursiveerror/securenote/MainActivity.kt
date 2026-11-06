@@ -69,6 +69,8 @@ fun NoteScreen(modifier: Modifier = Modifier) {
     var content by remember { mutableStateOf("") }
     var statusMessage by remember { mutableStateOf("") }
     var isSyncing by remember { mutableStateOf(false) }
+    var isPaired by remember { mutableStateOf(CryptoManager.isPaired(context)) }
+    var showPairingDialog by remember { mutableStateOf(false) }
 
     // Стан вибраної нотатки для перегляду та редагування
     var selectedNote by remember { mutableStateOf<Note?>(null) }
@@ -79,7 +81,7 @@ fun NoteScreen(modifier: Modifier = Modifier) {
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        // 1. Верхня панель: Заголовок + окрема кнопка Синхронізації з ПК
+        // 1. Верхня панель: Заголовок + кнопки
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -93,44 +95,56 @@ fun NoteScreen(modifier: Modifier = Modifier) {
                 )
             }
 
-            FilledTonalButton(
-                onClick = {
-                    if (isSyncing) return@FilledTonalButton
-
-                    val unsyncedCount = notes.count { !it.isSynced }
-                    if (unsyncedCount == 0) {
-                        statusMessage = "All notes are already synced"
-                        return@FilledTonalButton
-                    }
-
-                    isSyncing = true
-                    statusMessage = "Searching for PC in local Wi-Fi..."
-
-                    scope.launch {
-                        val serverIp = discoverServerIp(context)
-                        if (serverIp == null) {
-                            statusMessage = "PC not found. Make sure phone and PC are on the same Wi-Fi"
-                            isSyncing = false
-                            return@launch
-                        }
-
-                        statusMessage = "Found PC at $serverIp! Syncing $unsyncedCount note(s)..."
-
-                        val (updatedList, countSynced) = syncNotesWithServer(notes, serverIp)
-                        saveLocalNotes(context, updatedList)
-                        notes = updatedList
-                        isSyncing = false
-
-                        statusMessage = if (countSynced > 0) {
-                            "Synced $countSynced note(s) with PC ($serverIp)!"
-                        } else {
-                            "Failed to deliver note(s) to $serverIp."
-                        }
-                    }
-                },
-                enabled = !isSyncing
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Text(if (isSyncing) "Searching..." else "Sync")
+                OutlinedButton(
+                    onClick = { showPairingDialog = true },
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
+                ) {
+                    Text(if (isPaired) "AES-256" else "Pair PC")
+                }
+
+                FilledTonalButton(
+                    onClick = {
+                        if (isSyncing) return@FilledTonalButton
+
+                        val unsyncedCount = notes.count { !it.isSynced }
+                        if (unsyncedCount == 0) {
+                            statusMessage = "All notes are already synced"
+                            return@FilledTonalButton
+                        }
+
+                        isSyncing = true
+                        statusMessage = "Searching for PC in local Wi-Fi..."
+
+                        scope.launch {
+                            val serverIp = discoverServerIp(context)
+                            if (serverIp == null) {
+                                statusMessage = "PC not found. Make sure phone and PC are on the same Wi-Fi"
+                                isSyncing = false
+                                return@launch
+                            }
+
+                            statusMessage = "Found PC at $serverIp! Syncing $unsyncedCount note(s)..."
+
+                            val (updatedList, countSynced) = syncNotesWithServer(context, notes, serverIp)
+                            saveLocalNotes(context, updatedList)
+                            notes = updatedList
+                            isSyncing = false
+
+                            statusMessage = if (countSynced > 0) {
+                                "Synced $countSynced note(s) with PC ($serverIp)!"
+                            } else {
+                                "Failed to deliver note(s) to $serverIp."
+                            }
+                        }
+                    },
+                    enabled = !isSyncing
+                ) {
+                    Text(if (isSyncing) "Searching..." else "Sync")
+                }
             }
         }
 
@@ -361,6 +375,76 @@ fun NoteScreen(modifier: Modifier = Modifier) {
             }
         )
     }
+
+    // Діалогове вікно спарювання з ПК (AES-256)
+    if (showPairingDialog) {
+        var inputKey by remember { mutableStateOf(CryptoManager.getSavedKey(context) ?: "") }
+        AlertDialog(
+            onDismissRequest = { showPairingDialog = false },
+            title = { Text("PC Pairing (AES-256)", fontWeight = FontWeight.Bold) },
+            text = {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Text(
+                        text = "Enter or paste the pairing key from your PC (click 'Pair Phone (QR)' in the PC app):",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+
+                    OutlinedTextField(
+                        value = inputKey,
+                        onValueChange = { inputKey = it },
+                        label = { Text("Pairing Key or QR text") },
+                        modifier = Modifier.fillMaxWidth(),
+                        minLines = 2,
+                        maxLines = 4
+                    )
+
+                    if (isPaired) {
+                        Text(
+                            text = "Status: Encrypted with AES-256-GCM",
+                            color = androidx.compose.ui.graphics.Color(0xFF2E7D32),
+                            fontWeight = FontWeight.SemiBold,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (inputKey.isNotBlank()) {
+                            CryptoManager.saveKey(context, inputKey)
+                            isPaired = true
+                            showPairingDialog = false
+                            statusMessage = "Paired with PC! AES-256 encryption active."
+                        }
+                    }
+                ) {
+                    Text("Save")
+                }
+            },
+            dismissButton = {
+                if (isPaired) {
+                    TextButton(
+                        onClick = {
+                            CryptoManager.clearKey(context)
+                            isPaired = false
+                            inputKey = ""
+                            statusMessage = "Unpaired from PC"
+                        }
+                    ) {
+                        Text("Unpair", color = MaterialTheme.colorScheme.error)
+                    }
+                } else {
+                    TextButton(onClick = { showPairingDialog = false }) {
+                        Text("Cancel")
+                    }
+                }
+            }
+        )
+    }
 }
 
 // 📡 UDP Broadcast Автовиявлення комп'ютера у Wi-Fi мережі
@@ -404,12 +488,12 @@ suspend fun discoverServerIp(context: Context): String? = withContext(Dispatcher
     null
 }
 
-suspend fun syncNotesWithServer(currentNotes: List<Note>, serverIp: String): Pair<List<Note>, Int> {
+suspend fun syncNotesWithServer(context: Context, currentNotes: List<Note>, serverIp: String): Pair<List<Note>, Int> {
     return withContext(Dispatchers.IO) {
         var syncedCount = 0
         val updatedList = currentNotes.map { note ->
             if (!note.isSynced) {
-                val success = sendNoteToHost(note.title, note.content, serverIp)
+                val success = sendNoteToHost(note.title, note.content, serverIp, context)
                 if (success) {
                     syncedCount++
                     note.copy(isSynced = true)
@@ -424,7 +508,7 @@ suspend fun syncNotesWithServer(currentNotes: List<Note>, serverIp: String): Pai
     }
 }
 
-fun sendNoteToHost(title: String, content: String, host: String): Boolean {
+fun sendNoteToHost(title: String, content: String, host: String, context: Context): Boolean {
     return try {
         val url = URL("http://$host:8000")
         val conn = url.openConnection() as HttpURLConnection
@@ -436,7 +520,15 @@ fun sendNoteToHost(title: String, content: String, host: String): Boolean {
 
         val escapedTitle = title.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n")
         val escapedContent = content.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n")
-        val jsonPayload = """{"title": "$escapedTitle", "content": "$escapedContent"}"""
+        val rawJson = """{"title": "$escapedTitle", "content": "$escapedContent"}"""
+
+        val savedKey = CryptoManager.getSavedKey(context)
+        val jsonPayload = if (!savedKey.isNullOrBlank()) {
+            val (iv, data) = CryptoManager.encrypt(rawJson, savedKey)
+            """{"iv": "$iv", "data": "$data"}"""
+        } else {
+            rawJson
+        }
 
         conn.outputStream.use { os ->
             os.write(jsonPayload.toByteArray(Charsets.UTF_8))
