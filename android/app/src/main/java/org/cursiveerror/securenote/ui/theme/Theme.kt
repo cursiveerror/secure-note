@@ -5,13 +5,13 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
-private val ArchitecturalColorScheme = lightColorScheme(
-    primary = ColorAccent,
+private val SoftSkyColorScheme = lightColorScheme(
+    primary = ColorBrand,
     onPrimary = Color.White,
-    primaryContainer = ColorActiveFill,
-    onPrimaryContainer = ColorAccent,
+    primaryContainer = ColorBrandSoft,
+    onPrimaryContainer = ColorBrandDark,
     surface = Color.White,
-    background = Color(0xFFF7F9FB),
+    background = ColorBackground,
     onSurface = ColorTextPrimary,
     onBackground = ColorTextPrimary,
     outline = ColorBorder
@@ -22,7 +22,7 @@ fun SecureNoteTheme(
     content: @Composable () -> Unit
 ) {
     MaterialTheme(
-        colorScheme = ArchitecturalColorScheme,
+        colorScheme = SoftSkyColorScheme,
         typography = Typography,
         content = content
     )

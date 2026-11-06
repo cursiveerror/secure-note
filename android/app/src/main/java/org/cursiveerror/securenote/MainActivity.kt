@@ -14,7 +14,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.*
@@ -101,7 +100,6 @@ fun NoteScreen() {
 
     Scaffold(
         topBar = {
-            // Architectural Header Rail
             Surface(
                 color = Color.White,
                 modifier = Modifier.fillMaxWidth().statusBarsPadding()
@@ -110,61 +108,50 @@ fun NoteScreen() {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                            .padding(horizontal = 18.dp, vertical = 14.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            // Geometric logo mark
-                            Box(
-                                modifier = Modifier
-                                    .size(20.dp)
-                                    .background(ColorAccent, RoundedCornerShape(3.dp)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = "S",
-                                    color = Color.White,
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Black,
-                                    fontFamily = FontFamily.Monospace
-                                )
-                            }
-                            Spacer(modifier = Modifier.width(8.dp))
+                        Column {
                             Text(
-                                text = "SECURENOTE",
-                                fontSize = 13.sp,
+                                text = "Secure Note",
+                                fontSize = 18.sp,
                                 fontWeight = FontWeight.Bold,
-                                letterSpacing = 1.2.sp,
-                                color = ColorTextPrimary
+                                color = ColorTextPrimary,
+                                letterSpacing = (-0.3).sp
+                            )
+                            Text(
+                                text = "Local & Encrypted",
+                                fontSize = 11.sp,
+                                color = ColorTextMuted
                             )
                         }
 
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             // Pair button
                             Surface(
                                 modifier = Modifier
+                                    .clip(RoundedCornerShape(8.dp))
                                     .clickable { showPairingDialog = true }
-                                    .border(1.dp, if (isPaired) Color(0xFF2E7D32) else ColorBorder, RoundedCornerShape(4.dp)),
-                                color = if (isPaired) Color(0xFFE8F5E9) else Color.White,
-                                shape = RoundedCornerShape(4.dp)
+                                    .border(1.dp, if (isPaired) ColorSuccess else ColorBorder, RoundedCornerShape(8.dp)),
+                                color = if (isPaired) ColorSuccessBg else Color.White
                             ) {
                                 Text(
-                                    text = if (isPaired) "AES-256" else "PAIR",
-                                    fontSize = 10.sp,
-                                    fontFamily = FontFamily.Monospace,
-                                    fontWeight = FontWeight.Bold,
-                                    color = if (isPaired) Color(0xFF2E7D32) else ColorAccent,
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                    text = if (isPaired) "Paired" else "Pair",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = if (isPaired) ColorSuccess else ColorBrand,
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
                                 )
                             }
 
                             // Sync button
                             Surface(
                                 modifier = Modifier
+                                    .clip(RoundedCornerShape(8.dp))
                                     .clickable(enabled = !isSyncing) {
                                         if (isSyncing) return@clickable
                                         isSyncing = true
@@ -186,16 +173,14 @@ fun NoteScreen() {
                                             statusMessage = syncMsg
                                         }
                                     },
-                                shape = RoundedCornerShape(4.dp),
-                                color = ColorAccent
+                                color = ColorBrand
                             ) {
                                 Text(
-                                    text = if (isSyncing) "SYNCING..." else "SYNC",
-                                    fontSize = 10.sp,
-                                    fontFamily = FontFamily.Monospace,
-                                    fontWeight = FontWeight.Bold,
+                                    text = if (isSyncing) "Syncing..." else "Sync",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.SemiBold,
                                     color = Color.White,
-                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
                                 )
                             }
                         }
@@ -206,28 +191,22 @@ fun NoteScreen() {
             }
         },
         floatingActionButton = {
-            // Sleek architectural pill button
             Surface(
                 modifier = Modifier
+                    .clip(RoundedCornerShape(12.dp))
                     .clickable { showCreateDialog = true }
-                    .padding(bottom = 8.dp),
-                shape = RoundedCornerShape(6.dp),
-                color = ColorAccent,
-                shadowElevation = 6.dp
+                    .padding(bottom = 6.dp),
+                shape = RoundedCornerShape(12.dp),
+                color = ColorBrand,
+                shadowElevation = 4.dp
             ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "+ NEW NOTE",
-                        fontSize = 12.sp,
-                        fontFamily = FontFamily.Monospace,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White,
-                        letterSpacing = 0.8.sp
-                    )
-                }
+                Text(
+                    text = "+ New note",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color.White,
+                    modifier = Modifier.padding(horizontal = 18.dp, vertical = 12.dp)
+                )
             }
         }
     ) { innerPadding ->
@@ -235,45 +214,44 @@ fun NoteScreen() {
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .background(Color(0xFFF7F9FB))
-                .padding(horizontal = 14.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+                .background(ColorBackground)
+                .padding(horizontal = 16.dp, vertical = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             // Status bar message banner
             AnimatedVisibility(visible = statusMessage.isNotEmpty()) {
                 Surface(
-                    color = Color(0xFFECEFF2),
-                    shape = RoundedCornerShape(4.dp),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, ColorBorder),
+                    color = ColorBrandSoft,
+                    shape = RoundedCornerShape(10.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFCBE0ED)),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Row(
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Text(
-                            text = statusMessage.uppercase(Locale.getDefault()),
-                            fontSize = 10.sp,
-                            fontFamily = FontFamily.Monospace,
-                            color = ColorTextPrimary,
+                            text = statusMessage,
+                            fontSize = 11.sp,
+                            color = ColorBrandDark,
                             modifier = Modifier.weight(1f)
                         )
                         Text(
-                            text = "DISMISS",
-                            fontSize = 9.sp,
-                            fontFamily = FontFamily.Monospace,
-                            fontWeight = FontWeight.Bold,
-                            color = ColorAccent,
+                            text = "Dismiss",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = ColorBrand,
                             modifier = Modifier
+                                .clip(RoundedCornerShape(4.dp))
                                 .clickable { statusMessage = "" }
-                                .padding(start = 8.dp)
+                                .padding(horizontal = 6.dp, vertical = 2.dp)
                         )
                     }
                 }
             }
 
-            // Custom Filter Field (zero clipping, clean box)
+            // Search Field
             BasicTextField(
                 value = searchQuery,
                 onValueChange = { searchQuery = it },
@@ -282,12 +260,13 @@ fun NoteScreen() {
                     fontSize = 13.sp,
                     color = ColorTextPrimary
                 ),
-                cursorBrush = SolidColor(ColorAccent),
+                cursorBrush = SolidColor(ColorBrand),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(Color.White, RoundedCornerShape(4.dp))
-                    .border(1.dp, ColorBorder, RoundedCornerShape(4.dp))
-                    .padding(horizontal = 10.dp, vertical = 8.dp),
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(Color.White)
+                    .border(1.dp, ColorBorder, RoundedCornerShape(12.dp))
+                    .padding(horizontal = 14.dp, vertical = 10.dp),
                 decorationBox = { innerTextField ->
                     Box(
                         contentAlignment = Alignment.CenterStart,
@@ -295,7 +274,7 @@ fun NoteScreen() {
                     ) {
                         if (searchQuery.isEmpty()) {
                             Text(
-                                text = "Filter notes...",
+                                text = "Search notes...",
                                 fontSize = 13.sp,
                                 color = ColorTextPlaceholder
                             )
@@ -313,15 +292,14 @@ fun NoteScreen() {
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(
-                            text = if (searchQuery.isNotBlank()) "NO MATCHES" else "NO NOTES",
-                            fontSize = 12.sp,
-                            fontFamily = FontFamily.Monospace,
-                            fontWeight = FontWeight.Bold,
+                            text = if (searchQuery.isNotBlank()) "No notes match your search" else "No notes yet",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Medium,
                             color = ColorTextMuted
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = if (searchQuery.isNotBlank()) "Try different query." else "Tap '+ NEW NOTE' to create.",
+                            text = if (searchQuery.isNotBlank()) "Try a different search query." else "Tap '+ New note' to create one.",
                             fontSize = 12.sp,
                             color = ColorTextPlaceholder
                         )
@@ -330,23 +308,23 @@ fun NoteScreen() {
             } else {
                 LazyColumn(
                     modifier = Modifier.weight(1f).fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
-                    contentPadding = PaddingValues(bottom = 72.dp)
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    contentPadding = PaddingValues(bottom = 80.dp)
                 ) {
                     items(filteredNotes, key = { it.id }) { note ->
-                        DistinctMobileCard(
+                        SoftMobileNoteCard(
                             note = note,
                             onClick = { selectedNote = note },
                             onCopy = {
                                 val textToCopy = if (note.title.isNotBlank()) "${note.title}\n\n${note.content}" else note.content
                                 clipboardManager.setText(AnnotatedString(textToCopy))
-                                Toast.makeText(context, "Copied", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, "Copied to clipboard", Toast.LENGTH_SHORT).show()
                             },
                             onDelete = {
                                 val updated = notes.filter { it.id != note.id }
                                 saveLocalNotes(context, updated)
                                 notes = updated
-                                statusMessage = "Deleted note"
+                                statusMessage = "Note deleted"
                             }
                         )
                     }
@@ -364,29 +342,29 @@ fun NoteScreen() {
             onDismissRequest = { showCreateDialog = false },
             title = {
                 Text(
-                    text = "NEW ENTRY",
-                    fontSize = 14.sp,
-                    fontFamily = FontFamily.Monospace,
+                    text = "New note",
+                    fontSize = 16.sp,
                     fontWeight = FontWeight.Bold,
                     color = ColorTextPrimary
                 )
             },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     BasicTextField(
                         value = newTitle,
                         onValueChange = { newTitle = it },
                         singleLine = true,
-                        textStyle = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Bold, color = ColorTextPrimary),
-                        cursorBrush = SolidColor(ColorAccent),
+                        textStyle = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Bold, color = ColorTextPrimary),
+                        cursorBrush = SolidColor(ColorBrand),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(Color(0xFFF7F9FB), RoundedCornerShape(4.dp))
-                            .border(1.dp, ColorBorder, RoundedCornerShape(4.dp))
-                            .padding(10.dp),
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(Color(0xFFF8FAFC))
+                            .border(1.dp, ColorBorder, RoundedCornerShape(10.dp))
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
                         decorationBox = { inner ->
                             Box {
-                                if (newTitle.isEmpty()) Text("Title", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = ColorTextPlaceholder)
+                                if (newTitle.isEmpty()) Text("Note title", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = ColorTextPlaceholder)
                                 inner()
                             }
                         }
@@ -396,16 +374,17 @@ fun NoteScreen() {
                         value = newContent,
                         onValueChange = { newContent = it },
                         textStyle = TextStyle(fontSize = 14.sp, color = ColorTextPrimary, lineHeight = 20.sp),
-                        cursorBrush = SolidColor(ColorAccent),
+                        cursorBrush = SolidColor(ColorBrand),
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(140.dp)
-                            .background(Color(0xFFF7F9FB), RoundedCornerShape(4.dp))
-                            .border(1.dp, ColorBorder, RoundedCornerShape(4.dp))
-                            .padding(10.dp),
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(Color(0xFFF8FAFC))
+                            .border(1.dp, ColorBorder, RoundedCornerShape(10.dp))
+                            .padding(12.dp),
                         decorationBox = { inner ->
                             Box {
-                                if (newContent.isEmpty()) Text("Content...", fontSize = 14.sp, color = ColorTextPlaceholder)
+                                if (newContent.isEmpty()) Text("Write your thoughts here...", fontSize = 14.sp, color = ColorTextPlaceholder)
                                 inner()
                             }
                         }
@@ -414,44 +393,44 @@ fun NoteScreen() {
             },
             confirmButton = {
                 Surface(
-                    modifier = Modifier.clickable {
-                        if (newTitle.isNotBlank() || newContent.isNotBlank()) {
-                            val newNote = Note(
-                                title = newTitle.trim(),
-                                content = newContent.trim(),
-                                isSynced = false,
-                                timestamp = System.currentTimeMillis()
-                            )
-                            val updated = listOf(newNote) + notes
-                            saveLocalNotes(context, updated)
-                            notes = updated
-                            showCreateDialog = false
-                            statusMessage = "Saved locally"
-                        }
-                    },
-                    shape = RoundedCornerShape(3.dp),
-                    color = ColorAccent
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable {
+                            if (newTitle.isNotBlank() || newContent.isNotBlank()) {
+                                val newNote = Note(
+                                    title = newTitle.trim(),
+                                    content = newContent.trim(),
+                                    isSynced = false,
+                                    timestamp = System.currentTimeMillis()
+                                )
+                                val updated = listOf(newNote) + notes
+                                saveLocalNotes(context, updated)
+                                notes = updated
+                                showCreateDialog = false
+                                statusMessage = "Saved locally"
+                            }
+                        },
+                    color = ColorBrand
                 ) {
                     Text(
-                        text = "SAVE",
-                        fontSize = 11.sp,
-                        fontFamily = FontFamily.Monospace,
-                        fontWeight = FontWeight.Bold,
+                        text = "Save",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
                         color = Color.White,
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
                     )
                 }
             },
             dismissButton = {
                 Text(
-                    text = "CANCEL",
-                    fontSize = 11.sp,
-                    fontFamily = FontFamily.Monospace,
+                    text = "Cancel",
+                    fontSize = 12.sp,
                     fontWeight = FontWeight.Medium,
                     color = ColorTextMuted,
                     modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
                         .clickable { showCreateDialog = false }
-                        .padding(horizontal = 10.dp, vertical = 6.dp)
+                        .padding(horizontal = 12.dp, vertical = 8.dp)
                 )
             }
         )
@@ -466,29 +445,29 @@ fun NoteScreen() {
             onDismissRequest = { selectedNote = null },
             title = {
                 Text(
-                    text = "EDIT ENTRY",
-                    fontSize = 14.sp,
-                    fontFamily = FontFamily.Monospace,
+                    text = "Edit note",
+                    fontSize = 16.sp,
                     fontWeight = FontWeight.Bold,
                     color = ColorTextPrimary
                 )
             },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     BasicTextField(
                         value = editTitle,
                         onValueChange = { editTitle = it },
                         singleLine = true,
-                        textStyle = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Bold, color = ColorTextPrimary),
-                        cursorBrush = SolidColor(ColorAccent),
+                        textStyle = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Bold, color = ColorTextPrimary),
+                        cursorBrush = SolidColor(ColorBrand),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(Color(0xFFF7F9FB), RoundedCornerShape(4.dp))
-                            .border(1.dp, ColorBorder, RoundedCornerShape(4.dp))
-                            .padding(10.dp),
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(Color(0xFFF8FAFC))
+                            .border(1.dp, ColorBorder, RoundedCornerShape(10.dp))
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
                         decorationBox = { inner ->
                             Box {
-                                if (editTitle.isEmpty()) Text("Title", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = ColorTextPlaceholder)
+                                if (editTitle.isEmpty()) Text("Note title", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = ColorTextPlaceholder)
                                 inner()
                             }
                         }
@@ -498,16 +477,17 @@ fun NoteScreen() {
                         value = editContent,
                         onValueChange = { editContent = it },
                         textStyle = TextStyle(fontSize = 14.sp, color = ColorTextPrimary, lineHeight = 20.sp),
-                        cursorBrush = SolidColor(ColorAccent),
+                        cursorBrush = SolidColor(ColorBrand),
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(140.dp)
-                            .background(Color(0xFFF7F9FB), RoundedCornerShape(4.dp))
-                            .border(1.dp, ColorBorder, RoundedCornerShape(4.dp))
-                            .padding(10.dp),
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(Color(0xFFF8FAFC))
+                            .border(1.dp, ColorBorder, RoundedCornerShape(10.dp))
+                            .padding(12.dp),
                         decorationBox = { inner ->
                             Box {
-                                if (editContent.isEmpty()) Text("Content...", fontSize = 14.sp, color = ColorTextPlaceholder)
+                                if (editContent.isEmpty()) Text("Write your thoughts here...", fontSize = 14.sp, color = ColorTextPlaceholder)
                                 inner()
                             }
                         }
@@ -516,45 +496,45 @@ fun NoteScreen() {
             },
             confirmButton = {
                 Surface(
-                    modifier = Modifier.clickable {
-                        val updated = notes.map {
-                            if (it.id == currentNote.id) {
-                                it.copy(
-                                    title = editTitle.trim(),
-                                    content = editContent.trim(),
-                                    isSynced = false,
-                                    timestamp = System.currentTimeMillis()
-                                )
-                            } else it
-                        }
-                        saveLocalNotes(context, updated)
-                        notes = updated
-                        selectedNote = null
-                        statusMessage = "Updated locally"
-                    },
-                    shape = RoundedCornerShape(3.dp),
-                    color = ColorAccent
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable {
+                            val updated = notes.map {
+                                if (it.id == currentNote.id) {
+                                    it.copy(
+                                        title = editTitle.trim(),
+                                        content = editContent.trim(),
+                                        isSynced = false,
+                                        timestamp = System.currentTimeMillis()
+                                    )
+                                } else it
+                            }
+                            saveLocalNotes(context, updated)
+                            notes = updated
+                            selectedNote = null
+                            statusMessage = "Updated locally"
+                        },
+                    color = ColorBrand
                 ) {
                     Text(
-                        text = "SAVE",
-                        fontSize = 11.sp,
-                        fontFamily = FontFamily.Monospace,
-                        fontWeight = FontWeight.Bold,
+                        text = "Save",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
                         color = Color.White,
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
                     )
                 }
             },
             dismissButton = {
                 Text(
-                    text = "CANCEL",
-                    fontSize = 11.sp,
-                    fontFamily = FontFamily.Monospace,
+                    text = "Cancel",
+                    fontSize = 12.sp,
                     fontWeight = FontWeight.Medium,
                     color = ColorTextMuted,
                     modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
                         .clickable { selectedNote = null }
-                        .padding(horizontal = 10.dp, vertical = 6.dp)
+                        .padding(horizontal = 12.dp, vertical = 8.dp)
                 )
             }
         )
@@ -568,9 +548,8 @@ fun NoteScreen() {
             onDismissRequest = { showPairingDialog = false },
             title = {
                 Text(
-                    text = "DEVICE PAIRING // AES-256",
-                    fontSize = 13.sp,
-                    fontFamily = FontFamily.Monospace,
+                    text = "Pair with PC",
+                    fontSize = 16.sp,
                     fontWeight = FontWeight.Bold,
                     color = ColorTextPrimary
                 )
@@ -578,17 +557,19 @@ fun NoteScreen() {
             text = {
                 Column(
                     modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Text(
-                        text = "Scan QR from PC desktop window or paste symmetric key below.",
-                        fontSize = 12.sp,
-                        color = ColorTextMuted
+                        text = "Scan the QR code displayed in the PC app or paste the secret key below.",
+                        fontSize = 13.sp,
+                        color = ColorTextMuted,
+                        lineHeight = 18.sp
                     )
 
                     Surface(
                         modifier = Modifier
                             .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
                             .clickable {
                                 try {
                                     val scanner = GmsBarcodeScanning.getClient(context)
@@ -609,14 +590,12 @@ fun NoteScreen() {
                                     Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
                                 }
                             },
-                        shape = RoundedCornerShape(4.dp),
-                        color = ColorAccent
+                        color = ColorBrand
                     ) {
                         Text(
-                            text = "SCAN QR CODE",
-                            fontSize = 11.sp,
-                            fontFamily = FontFamily.Monospace,
-                            fontWeight = FontWeight.Bold,
+                            text = "Scan QR code",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold,
                             color = Color.White,
                             textAlign = TextAlign.Center,
                             modifier = Modifier.padding(vertical = 10.dp)
@@ -631,82 +610,89 @@ fun NoteScreen() {
                             fontFamily = FontFamily.Monospace,
                             color = ColorTextPrimary
                         ),
-                        cursorBrush = SolidColor(ColorAccent),
+                        cursorBrush = SolidColor(ColorBrand),
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(70.dp)
-                            .background(Color(0xFFF7F9FB), RoundedCornerShape(4.dp))
-                            .border(1.dp, ColorBorder, RoundedCornerShape(4.dp))
-                            .padding(8.dp),
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(Color(0xFFF8FAFC))
+                            .border(1.dp, ColorBorder, RoundedCornerShape(10.dp))
+                            .padding(10.dp),
                         decorationBox = { inner ->
                             Box {
-                                if (inputKey.isEmpty()) Text("Paste Base64 secret key...", fontSize = 11.sp, color = ColorTextPlaceholder)
+                                if (inputKey.isEmpty()) Text("Paste Base64 secret key here...", fontSize = 11.sp, color = ColorTextPlaceholder)
                                 inner()
                             }
                         }
                     )
 
                     if (isPaired) {
-                        Text(
-                            text = "STATUS // CIPHER ACTIVE",
-                            color = Color(0xFF2E7D32),
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 10.sp,
-                            fontFamily = FontFamily.Monospace
-                        )
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = ColorSuccessBg,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                text = "AES-256 Cipher Active · Paired",
+                                color = ColorSuccess,
+                                fontWeight = FontWeight.Medium,
+                                fontSize = 11.sp,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                            )
+                        }
                     }
                 }
             },
             confirmButton = {
                 Surface(
-                    modifier = Modifier.clickable {
-                        if (inputKey.isNotBlank()) {
-                            CryptoManager.saveKey(context, inputKey)
-                            isPaired = true
-                            showPairingDialog = false
-                            statusMessage = "Paired with PC"
-                        }
-                    },
-                    shape = RoundedCornerShape(3.dp),
-                    color = ColorAccent
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable {
+                            if (inputKey.isNotBlank()) {
+                                CryptoManager.saveKey(context, inputKey)
+                                isPaired = true
+                                showPairingDialog = false
+                                statusMessage = "Paired with PC"
+                            }
+                        },
+                    color = ColorBrand
                 ) {
                     Text(
-                        text = "SAVE",
-                        fontSize = 11.sp,
-                        fontFamily = FontFamily.Monospace,
-                        fontWeight = FontWeight.Bold,
+                        text = "Save key",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
                         color = Color.White,
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
                     )
                 }
             },
             dismissButton = {
                 if (isPaired) {
                     Text(
-                        text = "UNPAIR",
-                        fontSize = 11.sp,
-                        fontFamily = FontFamily.Monospace,
-                        fontWeight = FontWeight.Bold,
+                        text = "Unpair",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium,
                         color = Color(0xFFC62828),
                         modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
                             .clickable {
                                 CryptoManager.clearKey(context)
                                 isPaired = false
                                 inputKey = ""
                                 statusMessage = "Unpaired"
                             }
-                            .padding(horizontal = 10.dp, vertical = 6.dp)
+                            .padding(horizontal = 12.dp, vertical = 8.dp)
                     )
                 } else {
                     Text(
-                        text = "CANCEL",
-                        fontSize = 11.sp,
-                        fontFamily = FontFamily.Monospace,
+                        text = "Cancel",
+                        fontSize = 12.sp,
                         fontWeight = FontWeight.Medium,
                         color = ColorTextMuted,
                         modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
                             .clickable { showPairingDialog = false }
-                            .padding(horizontal = 10.dp, vertical = 6.dp)
+                            .padding(horizontal = 12.dp, vertical = 8.dp)
                     )
                 }
             }
@@ -715,7 +701,7 @@ fun NoteScreen() {
 }
 
 @Composable
-fun DistinctMobileCard(
+fun SoftMobileNoteCard(
     note: Note,
     onClick: () -> Unit,
     onCopy: () -> Unit,
@@ -727,98 +713,106 @@ fun DistinctMobileCard(
     Surface(
         modifier = Modifier
             .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
             .clickable { onClick() }
-            .border(1.dp, ColorBorder, RoundedCornerShape(4.dp)),
-        shape = RoundedCornerShape(4.dp),
+            .border(1.dp, ColorBorder, RoundedCornerShape(14.dp)),
+        shape = RoundedCornerShape(14.dp),
         color = Color.White
     ) {
-        Row(modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
-            // Left 3px indicator line (Green for Synced, Cerulean for Local)
-            Box(
-                modifier = Modifier
-                    .width(3.dp)
-                    .fillMaxHeight()
-                    .background(if (note.isSynced) Color(0xFF2E7D32) else ColorAccent)
-            )
-
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(horizontal = 12.dp, vertical = 10.dp)
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = note.title.ifBlank { "Untitled" },
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = ColorTextPrimary,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f)
-                    )
-
-                    Text(
-                        text = formattedDate,
-                        fontSize = 10.sp,
-                        fontFamily = FontFamily.Monospace,
-                        color = ColorTextMuted
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(3.dp))
+                Text(
+                    text = note.title.ifBlank { "Untitled note" },
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = ColorTextPrimary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
+                )
 
                 Text(
-                    text = note.content.ifBlank { "(Empty)" },
-                    fontSize = 12.sp,
-                    color = ColorTextMuted,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    text = formattedDate,
+                    fontSize = 11.sp,
+                    color = ColorTextMuted
                 )
             }
 
-            // Quick Copy and Delete buttons
+            if (note.content.isNotBlank()) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = note.content,
+                    fontSize = 12.sp,
+                    color = ColorTextMuted,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    lineHeight = 17.sp
+                )
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
             Row(
-                modifier = Modifier
-                    .align(Alignment.CenterVertically)
-                    .padding(end = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
+                // Sync status chip matching icon tone
                 Surface(
-                    modifier = Modifier
-                        .clickable { onCopy() }
-                        .border(1.dp, ColorBorder, RoundedCornerShape(3.dp)),
-                    shape = RoundedCornerShape(3.dp),
-                    color = Color.White
+                    shape = RoundedCornerShape(6.dp),
+                    color = if (note.isSynced) ColorSuccessBg else ColorBrandSoft
                 ) {
                     Text(
-                        text = "COPY",
-                        fontSize = 9.sp,
-                        fontFamily = FontFamily.Monospace,
-                        fontWeight = FontWeight.Bold,
-                        color = ColorTextPrimary,
-                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp)
+                        text = if (note.isSynced) "Synced" else "Local",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = if (note.isSynced) ColorSuccess else ColorBrandDark,
+                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp)
                     )
                 }
 
-                Surface(
-                    modifier = Modifier
-                        .clickable { onDelete() }
-                        .border(1.dp, Color(0xFFFFCDD2), RoundedCornerShape(3.dp)),
-                    shape = RoundedCornerShape(3.dp),
-                    color = Color(0xFFFFF8F8)
-                ) {
-                    Text(
-                        text = "DEL",
-                        fontSize = 9.sp,
-                        fontFamily = FontFamily.Monospace,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFFC62828),
-                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp)
-                    )
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Surface(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(6.dp))
+                            .clickable { onCopy() }
+                            .border(1.dp, ColorBorder, RoundedCornerShape(6.dp)),
+                        shape = RoundedCornerShape(6.dp),
+                        color = Color.White
+                    ) {
+                        Text(
+                            text = "Copy",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = ColorTextPrimary,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        )
+                    }
+
+                    Surface(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(6.dp))
+                            .clickable { onDelete() }
+                            .border(1.dp, Color(0xFFFFD9D9), RoundedCornerShape(6.dp)),
+                        shape = RoundedCornerShape(6.dp),
+                        color = Color(0xFFFFF7F7)
+                    ) {
+                        Text(
+                            text = "Delete",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = Color(0xFFC62828),
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        )
+                    }
                 }
             }
         }
