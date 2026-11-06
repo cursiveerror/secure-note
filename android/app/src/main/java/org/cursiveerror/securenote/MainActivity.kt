@@ -208,7 +208,7 @@ fun NoteScreen() {
                 value = searchQuery,
                 onValueChange = { searchQuery = it },
                 placeholder = { Text("Search notes...", fontSize = 13.sp) },
-                modifier = Modifier.fillMaxWidth().height(48.dp),
+                modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 shape = RoundedCornerShape(10.dp),
                 textStyle = LocalTextStyle.current.copy(fontSize = 13.sp)
