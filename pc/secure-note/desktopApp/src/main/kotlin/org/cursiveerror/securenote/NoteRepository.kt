@@ -26,7 +26,8 @@ object NoteRepository {
                         id = obj.optString("id", UUID.randomUUID().toString()),
                         title = obj.optString("title", ""),
                         content = obj.optString("content", ""),
-                        timestamp = obj.optLong("timestamp", System.currentTimeMillis())
+                        timestamp = obj.optLong("timestamp", System.currentTimeMillis()),
+                        isDeleted = obj.optBoolean("isDeleted", false)
                     )
                 )
             }
@@ -47,6 +48,7 @@ object NoteRepository {
                     put("title", n.title)
                     put("content", n.content)
                     put("timestamp", n.timestamp)
+                    put("isDeleted", n.isDeleted)
                 }
                 array.put(obj)
             }

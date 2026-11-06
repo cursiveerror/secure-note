@@ -34,7 +34,6 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.google.mlkit.vision.codescanner.GmsBarcodeScanning
@@ -60,7 +59,8 @@ data class Note(
     val title: String,
     val content: String,
     val isSynced: Boolean = false,
-    val timestamp: Long = System.currentTimeMillis()
+    val timestamp: Long = System.currentTimeMillis(),
+    val isDeleted: Boolean = false
 )
 
 class MainActivity : ComponentActivity() {
@@ -81,7 +81,9 @@ fun NoteScreen() {
     val clipboardManager = LocalClipboardManager.current
     val scope = rememberCoroutineScope()
 
-    var notes by remember { mutableStateOf(loadLocalNotes(context)) }
+    var allNotes by remember { mutableStateOf(loadLocalNotes(context)) }
+    val notes = remember(allNotes) { allNotes.filter { !it.isDeleted } }
+
     var searchQuery by remember { mutableStateOf("") }
     var statusMessage by remember { mutableStateOf("") }
     var isSyncing by remember { mutableStateOf(false) }
@@ -150,7 +152,7 @@ fun NoteScreen() {
                                 }
                             }
 
-                            // Sync button
+                            // Sync button (Phone only)
                             Surface(
                                 modifier = Modifier
                                     .height(32.dp)
@@ -158,20 +160,12 @@ fun NoteScreen() {
                                     .clickable(enabled = !isSyncing) {
                                         if (isSyncing) return@clickable
                                         isSyncing = true
-                                        statusMessage = "Searching..."
+                                        statusMessage = "Connecting..."
 
                                         scope.launch {
-                                            val serverIp = discoverServerIp(context)
-                                            if (serverIp == null) {
-                                                statusMessage = "PC not found"
-                                                isSyncing = false
-                                                return@launch
-                                            }
-
-                                            statusMessage = "Syncing..."
-                                            val (mergedList, syncMsg) = syncNotesWithServer(context, notes, serverIp)
+                                            val (mergedList, syncMsg) = syncNotesWithServer(context, allNotes)
                                             saveLocalNotes(context, mergedList)
-                                            notes = mergedList
+                                            allNotes = mergedList
                                             isSyncing = false
                                             statusMessage = syncMsg
                                         }
@@ -339,9 +333,17 @@ fun NoteScreen() {
                                 Toast.makeText(context, "Copied", Toast.LENGTH_SHORT).show()
                             },
                             onDelete = {
-                                val updated = notes.filter { it.id != note.id }
+                                val updated = allNotes.map {
+                                    if (it.id == note.id) {
+                                        it.copy(
+                                            isDeleted = true,
+                                            isSynced = false,
+                                            timestamp = System.currentTimeMillis()
+                                        )
+                                    } else it
+                                }
                                 saveLocalNotes(context, updated)
-                                notes = updated
+                                allNotes = updated
                                 statusMessage = "Deleted"
                             }
                         )
@@ -360,7 +362,7 @@ fun NoteScreen() {
             onDismissRequest = { showCreateDialog = false },
             title = {
                 Text(
-                    text = "New",
+                    text = "New Note",
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Bold,
                     color = ColorTextPrimary
@@ -414,24 +416,23 @@ fun NoteScreen() {
                     modifier = Modifier
                         .clip(RoundedCornerShape(6.dp))
                         .clickable {
-                            if (newTitle.isNotBlank() || newContent.isNotBlank()) {
-                                val newNote = Note(
-                                    title = newTitle.trim(),
-                                    content = newContent.trim(),
-                                    isSynced = false,
-                                    timestamp = System.currentTimeMillis()
-                                )
-                                val updated = listOf(newNote) + notes
-                                saveLocalNotes(context, updated)
-                                notes = updated
-                                showCreateDialog = false
-                                statusMessage = "Saved"
-                            }
+                            val newNote = Note(
+                                title = newTitle.trim(),
+                                content = newContent.trim(),
+                                isSynced = false,
+                                timestamp = System.currentTimeMillis(),
+                                isDeleted = false
+                            )
+                            val updated = listOf(newNote) + allNotes
+                            saveLocalNotes(context, updated)
+                            allNotes = updated
+                            showCreateDialog = false
+                            statusMessage = "Created"
                         },
                     color = ColorBrand
                 ) {
                     Text(
-                        text = "Save",
+                        text = "Create",
                         fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = Color.White,
@@ -463,7 +464,7 @@ fun NoteScreen() {
             onDismissRequest = { selectedNote = null },
             title = {
                 Text(
-                    text = "Edit",
+                    text = "Edit Note",
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Bold,
                     color = ColorTextPrimary
@@ -517,7 +518,7 @@ fun NoteScreen() {
                     modifier = Modifier
                         .clip(RoundedCornerShape(6.dp))
                         .clickable {
-                            val updated = notes.map {
+                            val updated = allNotes.map {
                                 if (it.id == currentNote.id) {
                                     it.copy(
                                         title = editTitle.trim(),
@@ -528,7 +529,7 @@ fun NoteScreen() {
                                 } else it
                             }
                             saveLocalNotes(context, updated)
-                            notes = updated
+                            allNotes = updated
                             selectedNote = null
                             statusMessage = "Saved"
                         },
@@ -561,12 +562,13 @@ fun NoteScreen() {
     // Modal: Device Pairing
     if (showPairingDialog) {
         var inputKey by remember { mutableStateOf(CryptoManager.getSavedKey(context) ?: "") }
+        var inputIp by remember { mutableStateOf(CryptoManager.getSavedServerIp(context) ?: "") }
 
         AlertDialog(
             onDismissRequest = { showPairingDialog = false },
             title = {
                 Text(
-                    text = "Pair",
+                    text = "Pair with PC",
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Bold,
                     color = ColorTextPrimary
@@ -578,7 +580,7 @@ fun NoteScreen() {
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     Text(
-                        text = "Scan QR or enter key",
+                        text = "Scan QR from PC screen or configure manually",
                         fontSize = 12.sp,
                         color = ColorTextMuted
                     )
@@ -594,10 +596,12 @@ fun NoteScreen() {
                                         .addOnSuccessListener { barcode ->
                                             val rawValue = barcode.rawValue ?: ""
                                             if (rawValue.isNotBlank()) {
-                                                CryptoManager.saveKey(context, rawValue)
+                                                val (savedKey, savedIp) = CryptoManager.saveKey(context, rawValue)
+                                                inputKey = savedKey
+                                                if (savedIp != null) inputIp = savedIp
                                                 isPaired = true
                                                 showPairingDialog = false
-                                                statusMessage = "Paired"
+                                                statusMessage = if (savedIp != null) "Paired ($savedIp)" else "Paired (AES-256)"
                                             }
                                         }
                                         .addOnFailureListener { e ->
@@ -610,15 +614,42 @@ fun NoteScreen() {
                         color = ColorBrand
                     ) {
                         Text(
-                            text = "Scan QR",
+                            text = "Scan QR Code",
                             fontSize = 12.sp,
                             fontWeight = FontWeight.SemiBold,
                             color = Color.White,
                             textAlign = TextAlign.Center,
-                            modifier = Modifier.padding(vertical = 9.dp)
+                            modifier = Modifier.padding(vertical = 10.dp)
                         )
                     }
 
+                    // PC IP manual field
+                    BasicTextField(
+                        value = inputIp,
+                        onValueChange = { inputIp = it },
+                        singleLine = true,
+                        textStyle = TextStyle(
+                            fontSize = 12.sp,
+                            fontFamily = FontFamily.Monospace,
+                            color = ColorTextPrimary
+                        ),
+                        cursorBrush = SolidColor(ColorBrand),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(38.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(Color(0xFFF8FAFC))
+                            .border(1.dp, ColorBorder, RoundedCornerShape(8.dp))
+                            .padding(horizontal = 10.dp, vertical = 8.dp),
+                        decorationBox = { inner ->
+                            Box {
+                                if (inputIp.isEmpty()) Text("PC IP (e.g. 192.168.1.100)", fontSize = 12.sp, color = ColorTextPlaceholder)
+                                inner()
+                            }
+                        }
+                    )
+
+                    // Key field
                     BasicTextField(
                         value = inputKey,
                         onValueChange = { inputKey = it },
@@ -630,14 +661,14 @@ fun NoteScreen() {
                         cursorBrush = SolidColor(ColorBrand),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(64.dp)
+                            .height(54.dp)
                             .clip(RoundedCornerShape(8.dp))
                             .background(Color(0xFFF8FAFC))
                             .border(1.dp, ColorBorder, RoundedCornerShape(8.dp))
                             .padding(8.dp),
                         decorationBox = { inner ->
                             Box {
-                                if (inputKey.isEmpty()) Text("Key...", fontSize = 11.sp, color = ColorTextPlaceholder)
+                                if (inputKey.isEmpty()) Text("AES Key (Base64)...", fontSize = 11.sp, color = ColorTextPlaceholder)
                                 inner()
                             }
                         }
@@ -650,7 +681,7 @@ fun NoteScreen() {
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Text(
-                                text = "Paired (AES-256)",
+                                text = "✓ Paired (AES-256-GCM)",
                                 color = ColorSuccess,
                                 fontWeight = FontWeight.Medium,
                                 fontSize = 11.sp,
@@ -667,10 +698,13 @@ fun NoteScreen() {
                         .clickable {
                             if (inputKey.isNotBlank()) {
                                 CryptoManager.saveKey(context, inputKey)
-                                isPaired = true
-                                showPairingDialog = false
-                                statusMessage = "Paired"
                             }
+                            if (inputIp.isNotBlank()) {
+                                CryptoManager.saveServerIp(context, inputIp)
+                            }
+                            isPaired = CryptoManager.isPaired(context)
+                            showPairingDialog = false
+                            statusMessage = "Settings saved"
                         },
                     color = ColorBrand
                 ) {
@@ -696,6 +730,7 @@ fun NoteScreen() {
                                 CryptoManager.clearKey(context)
                                 isPaired = false
                                 inputKey = ""
+                                inputIp = ""
                                 statusMessage = "Unpaired"
                             }
                             .padding(horizontal = 10.dp, vertical = 6.dp)
@@ -848,7 +883,7 @@ suspend fun discoverServerIp(context: Context): String? = withContext(Dispatcher
 
         socket = DatagramSocket().apply {
             broadcast = true
-            soTimeout = 2500
+            soTimeout = 1500
         }
 
         val requestData = "DISCOVER_NOTES_SERVER".toByteArray(Charsets.UTF_8)
@@ -876,128 +911,108 @@ suspend fun discoverServerIp(context: Context): String? = withContext(Dispatcher
     null
 }
 
-// Two-Way LAN Synchronization
-suspend fun syncNotesWithServer(context: Context, currentNotes: List<Note>, serverIp: String): Pair<List<Note>, String> {
+// Full 2-Way Atomic Synchronization
+suspend fun syncNotesWithServer(context: Context, currentNotes: List<Note>): Pair<List<Note>, String> {
     return withContext(Dispatchers.IO) {
-        var pushedCount = 0
-
-        val afterPushList = currentNotes.map { note ->
-            if (!note.isSynced) {
-                val success = sendNoteToHost(note.id, note.title, note.content, note.timestamp, serverIp, context)
-                if (success) {
-                    pushedCount++
-                    note.copy(isSynced = true)
-                } else {
-                    note
-                }
-            } else {
-                note
-            }
+        var serverIp = CryptoManager.getSavedServerIp(context)
+        val discovered = discoverServerIp(context)
+        if (!discovered.isNullOrBlank()) {
+            serverIp = discovered
+            CryptoManager.saveServerIp(context, discovered)
         }
 
-        val (pulledNotes, pullSuccess) = fetchNotesFromHost(serverIp, context)
-        if (!pullSuccess) {
-            val msg = if (pushedCount > 0) "Sent $pushedCount" else "PC unreachable"
-            return@withContext Pair(afterPushList, msg)
+        if (serverIp.isNullOrBlank()) {
+            return@withContext Pair(currentNotes, "PC not found. Make sure PC app is running on same Wi-Fi.")
         }
 
-        val noteMap = afterPushList.associateBy { it.id }.toMutableMap()
-        var newFromPcCount = 0
-
-        for (remote in pulledNotes) {
-            val existing = noteMap[remote.id]
-            if (existing == null) {
-                noteMap[remote.id] = remote.copy(isSynced = true)
-                newFromPcCount++
-            } else {
-                if (remote.timestamp > existing.timestamp) {
-                    noteMap[remote.id] = remote.copy(isSynced = true)
-                }
-            }
+        val clientArray = JSONArray()
+        for (n in currentNotes) {
+            clientArray.put(JSONObject().apply {
+                put("id", n.id)
+                put("title", n.title)
+                put("content", n.content)
+                put("timestamp", n.timestamp)
+                put("isDeleted", n.isDeleted)
+            })
         }
 
-        val mergedList = noteMap.values.sortedByDescending { it.timestamp }
-        val finalMsg = "Synced (+$pushedCount / -$newFromPcCount)"
-        Pair(mergedList, finalMsg)
-    }
-}
-
-fun sendNoteToHost(id: String, title: String, content: String, timestamp: Long, host: String, context: Context): Boolean {
-    return try {
-        val url = URL("http://$host:8000")
-        val conn = url.openConnection() as HttpURLConnection
-        conn.requestMethod = "POST"
-        conn.setRequestProperty("Content-Type", "application/json; charset=utf-8")
-        conn.doOutput = true
-        conn.connectTimeout = 3000
-        conn.readTimeout = 3000
-
-        val escapedTitle = title.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n")
-        val escapedContent = content.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n")
-        val rawJson = """{"id":"$id","title":"$escapedTitle","content":"$escapedContent","timestamp":$timestamp}"""
+        val rawPayload = JSONObject().apply {
+            put("clientNotes", clientArray)
+        }.toString()
 
         val savedKey = CryptoManager.getSavedKey(context)
-        val jsonPayload = if (!savedKey.isNullOrBlank()) {
-            val (iv, data) = CryptoManager.encrypt(rawJson, savedKey)
-            """{"iv":"$iv","data":"$data"}"""
-        } else {
-            rawJson
-        }
+        var wasEncrypted = false
 
-        conn.outputStream.use { os ->
-            os.write(jsonPayload.toByteArray(Charsets.UTF_8))
-        }
-
-        conn.responseCode in 200..299
-    } catch (_: Exception) {
-        false
-    }
-}
-
-fun fetchNotesFromHost(host: String, context: Context): Pair<List<Note>, Boolean> {
-    return try {
-        val url = URL("http://$host:8000/notes")
-        val conn = url.openConnection() as HttpURLConnection
-        conn.requestMethod = "GET"
-        conn.connectTimeout = 3000
-        conn.readTimeout = 3000
-
-        if (conn.responseCode !in 200..299) {
-            return Pair(emptyList(), false)
-        }
-
-        val responseText = conn.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
-        val savedKey = CryptoManager.getSavedKey(context)
-
-        val jsonArrayText = if (responseText.trim().startsWith("{") && responseText.contains("\"iv\"")) {
-            val envelope = JSONObject(responseText)
-            val iv = envelope.getString("iv")
-            val data = envelope.getString("data")
-            if (savedKey.isNullOrBlank()) {
-                return Pair(emptyList(), false)
+        val payloadBytes = if (!savedKey.isNullOrBlank()) {
+            try {
+                val (iv, data) = CryptoManager.encrypt(rawPayload, savedKey)
+                wasEncrypted = true
+                """{"iv":"$iv","data":"$data"}""".toByteArray(Charsets.UTF_8)
+            } catch (_: Exception) {
+                rawPayload.toByteArray(Charsets.UTF_8)
             }
-            CryptoManager.decrypt(data, iv, savedKey)
         } else {
-            responseText
+            rawPayload.toByteArray(Charsets.UTF_8)
         }
 
-        val array = JSONArray(jsonArrayText)
-        val list = mutableListOf<Note>()
-        for (i in 0 until array.length()) {
-            val obj = array.getJSONObject(i)
-            list.add(
-                Note(
-                    id = obj.optString("id", UUID.randomUUID().toString()),
-                    title = obj.optString("title", ""),
-                    content = obj.optString("content", ""),
-                    isSynced = true,
-                    timestamp = obj.optLong("timestamp", System.currentTimeMillis())
+        var conn: HttpURLConnection? = null
+        try {
+            val url = URL("http://$serverIp:8000/sync")
+            conn = (url.openConnection() as HttpURLConnection).apply {
+                requestMethod = "POST"
+                setRequestProperty("Content-Type", "application/json; charset=utf-8")
+                doOutput = true
+                connectTimeout = 3000
+                readTimeout = 4000
+            }
+
+            conn.outputStream.use { os ->
+                os.write(payloadBytes)
+            }
+
+            val code = conn.responseCode
+            if (code == 401) {
+                return@withContext Pair(currentNotes, "Key mismatch! Please scan PC's QR code to re-pair.")
+            }
+            if (code !in 200..299) {
+                return@withContext Pair(currentNotes, "Server error ($code)")
+            }
+
+            val responseText = conn.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
+
+            val decryptedText = if (wasEncrypted && responseText.trim().startsWith("{") && responseText.contains("\"iv\"")) {
+                val envelope = JSONObject(responseText)
+                val iv = envelope.getString("iv")
+                val data = envelope.getString("data")
+                CryptoManager.decrypt(data, iv, savedKey!!)
+            } else {
+                responseText
+            }
+
+            val respObj = JSONObject(decryptedText)
+            val notesArr = respObj.optJSONArray("notes") ?: JSONArray()
+            val mergedList = mutableListOf<Note>()
+            for (i in 0 until notesArr.length()) {
+                val obj = notesArr.getJSONObject(i)
+                mergedList.add(
+                    Note(
+                        id = obj.optString("id", UUID.randomUUID().toString()),
+                        title = obj.optString("title", ""),
+                        content = obj.optString("content", ""),
+                        isSynced = true,
+                        timestamp = obj.optLong("timestamp", System.currentTimeMillis()),
+                        isDeleted = obj.optBoolean("isDeleted", false)
+                    )
                 )
-            )
+            }
+
+            val activeCount = mergedList.count { !it.isDeleted }
+            Pair(mergedList, "Synced ($activeCount notes)")
+        } catch (e: Exception) {
+            Pair(currentNotes, "Connection failed: ${e.message ?: "PC unreachable"}")
+        } finally {
+            conn?.disconnect()
         }
-        Pair(list, true)
-    } catch (_: Exception) {
-        Pair(emptyList(), false)
     }
 }
 
@@ -1012,6 +1027,7 @@ fun saveLocalNotes(context: Context, notes: List<Note>) {
                 put("content", note.content)
                 put("isSynced", note.isSynced)
                 put("timestamp", note.timestamp)
+                put("isDeleted", note.isDeleted)
             }
             jsonArray.put(obj)
         }
@@ -1037,21 +1053,13 @@ fun loadLocalNotes(context: Context): List<Note> {
                     title = obj.optString("title", ""),
                     content = obj.optString("content", ""),
                     isSynced = obj.optBoolean("isSynced", false),
-                    timestamp = obj.optLong("timestamp", System.currentTimeMillis())
+                    timestamp = obj.optLong("timestamp", System.currentTimeMillis()),
+                    isDeleted = obj.optBoolean("isDeleted", false)
                 )
             )
         }
         list
-    } catch (e: Exception) {
-        e.printStackTrace()
+    } catch (_: Exception) {
         emptyList()
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun NoteScreenPreview() {
-    SecureNoteTheme {
-        NoteScreen()
     }
 }

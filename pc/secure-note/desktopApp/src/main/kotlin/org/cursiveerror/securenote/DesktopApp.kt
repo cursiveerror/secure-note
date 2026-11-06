@@ -56,29 +56,30 @@ fun DesktopApp(
 ) {
     val clipboardManager = LocalClipboardManager.current
     var searchQuery by remember { mutableStateOf("") }
-    var selectedNoteId by remember { mutableStateOf<String?>(notes.firstOrNull()?.id) }
+    val activeNotes = remember(notes) { notes.filter { !it.isDeleted } }
+    var selectedNoteId by remember { mutableStateOf<String?>(activeNotes.firstOrNull()?.id) }
     var showPairingDialog by remember { mutableStateOf(false) }
     var notificationMessage by remember { mutableStateOf<String?>(null) }
 
-    LaunchedEffect(notes) {
-        if (selectedNoteId == null || notes.none { it.id == selectedNoteId }) {
-            selectedNoteId = notes.firstOrNull()?.id
+    LaunchedEffect(activeNotes) {
+        if (selectedNoteId == null || activeNotes.none { it.id == selectedNoteId }) {
+            selectedNoteId = activeNotes.firstOrNull()?.id
         }
     }
 
-    val filteredNotes = remember(notes, searchQuery) {
+    val filteredNotes = remember(activeNotes, searchQuery) {
         if (searchQuery.isBlank()) {
-            notes
+            activeNotes
         } else {
-            notes.filter {
+            activeNotes.filter {
                 it.title.contains(searchQuery, ignoreCase = true) ||
                 it.content.contains(searchQuery, ignoreCase = true)
             }
         }
     }
 
-    val selectedNote = remember(notes, selectedNoteId) {
-        notes.firstOrNull { it.id == selectedNoteId }
+    val selectedNote = remember(activeNotes, selectedNoteId) {
+        activeNotes.firstOrNull { it.id == selectedNoteId }
     }
 
     MaterialTheme {
@@ -117,7 +118,7 @@ fun DesktopApp(
                         }
 
                         Text(
-                            text = "${notes.size} notes",
+                            text = "${activeNotes.size} notes",
                             fontSize = 11.sp,
                             color = ColorTextMuted
                         )
@@ -360,6 +361,7 @@ fun DesktopApp(
 
         if (showPairingDialog) {
             CompactPairingDialog(
+                serverIp = serverIp,
                 onDismiss = { showPairingDialog = false },
                 onCopyKey = {
                     val key = CryptoManager.getKeyBase64()
@@ -589,11 +591,14 @@ fun CompactEditorPane(
 
 @Composable
 fun CompactPairingDialog(
+    serverIp: String,
     onDismiss: () -> Unit,
     onCopyKey: () -> Unit
 ) {
     val keyBase64 = remember { CryptoManager.getKeyBase64() }
-    val qrContent = remember { "SECURENOTE_KEY:$keyBase64" }
+    val qrContent = remember(serverIp, keyBase64) {
+        "SECURENOTE_PAIR:{\"ip\":\"$serverIp\",\"port\":8000,\"key\":\"$keyBase64\"}"
+    }
     val qrMatrix = remember(qrContent) { CryptoManager.generateQrMatrix(qrContent, 200) }
 
     AlertDialog(

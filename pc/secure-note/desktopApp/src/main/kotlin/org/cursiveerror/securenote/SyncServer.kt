@@ -10,6 +10,7 @@ import java.net.DatagramSocket
 import java.net.Inet4Address
 import java.net.InetSocketAddress
 import java.net.NetworkInterface
+import java.util.UUID
 import java.util.concurrent.Executors
 import javax.crypto.AEADBadTagException
 import kotlin.concurrent.thread
@@ -17,7 +18,7 @@ import kotlin.concurrent.thread
 class SyncServer(
     private val httpPort: Int = 8000,
     private val udpPort: Int = 8888,
-    private val onNoteReceived: (Note) -> Unit,
+    private val onSync: (List<Note>) -> List<Note>,
     private val getCurrentNotes: () -> List<Note>
 ) {
     private var httpServer: HttpServer? = null
@@ -51,35 +52,93 @@ class SyncServer(
             val server = HttpServer.create(InetSocketAddress(httpPort), 0)
             server.executor = Executors.newCachedThreadPool()
 
-            server.createContext("/", object : HttpHandler {
+            val syncHandler = object : HttpHandler {
                 override fun handle(exchange: HttpExchange) {
                     try {
                         val method = exchange.requestMethod.uppercase()
                         if (method == "POST") {
                             val bodyBytes = exchange.requestBody.readBytes()
                             val bodyText = String(bodyBytes, Charsets.UTF_8).trim()
-                            if (bodyText.isNotEmpty()) {
+
+                            var wasEncrypted = false
+                            val finalJson: JSONObject = if (bodyText.isNotEmpty()) {
                                 val json = JSONObject(bodyText)
-                                val finalJson: JSONObject = if (json.has("iv") && json.has("data")) {
+                                if (json.has("iv") && json.has("data")) {
+                                    wasEncrypted = true
                                     val iv = json.getString("iv")
                                     val data = json.getString("data")
                                     val decryptedText = CryptoManager.decrypt(data, iv)
-                                    println("[Crypto] Decrypted incoming note via AES-256-GCM successfully.")
+                                    println("[Sync] Decrypted incoming sync request via AES-256-GCM.")
                                     JSONObject(decryptedText)
                                 } else {
                                     json
                                 }
-
-                                val title = finalJson.optString("title", "Untitled")
-                                val content = finalJson.optString("content", "")
-                                val id = finalJson.optString("id", java.util.UUID.randomUUID().toString())
-                                val note = Note(id = id, title = title, content = content)
-                                onNoteReceived(note)
+                            } else {
+                                JSONObject()
                             }
-                            val response = """{"status":"ok"}""".toByteArray(Charsets.UTF_8)
+
+                            val incomingList = mutableListOf<Note>()
+                            if (finalJson.has("clientNotes")) {
+                                val clientArr = finalJson.getJSONArray("clientNotes")
+                                for (i in 0 until clientArr.length()) {
+                                    val obj = clientArr.getJSONObject(i)
+                                    incomingList.add(
+                                        Note(
+                                            id = obj.optString("id", UUID.randomUUID().toString()),
+                                            title = obj.optString("title", ""),
+                                            content = obj.optString("content", ""),
+                                            timestamp = obj.optLong("timestamp", System.currentTimeMillis()),
+                                            isDeleted = obj.optBoolean("isDeleted", false)
+                                        )
+                                    )
+                                }
+                            } else if (finalJson.has("title") || finalJson.has("content")) {
+                                incomingList.add(
+                                    Note(
+                                        id = finalJson.optString("id", UUID.randomUUID().toString()),
+                                        title = finalJson.optString("title", "Untitled"),
+                                        content = finalJson.optString("content", ""),
+                                        timestamp = finalJson.optLong("timestamp", System.currentTimeMillis()),
+                                        isDeleted = finalJson.optBoolean("isDeleted", false)
+                                    )
+                                )
+                            }
+
+                            // Perform 2-Way synchronization merge
+                            val mergedNotes = onSync(incomingList)
+
+                            val array = JSONArray()
+                            for (n in mergedNotes) {
+                                array.put(JSONObject().apply {
+                                    put("id", n.id)
+                                    put("title", n.title)
+                                    put("content", n.content)
+                                    put("timestamp", n.timestamp)
+                                    put("isDeleted", n.isDeleted)
+                                })
+                            }
+
+                            val rawResp = JSONObject().apply {
+                                put("status", "ok")
+                                put("notes", array)
+                            }.toString()
+
+                            val responseText = if (wasEncrypted) {
+                                try {
+                                    val (iv, data) = CryptoManager.encrypt(rawResp)
+                                    """{"iv":"$iv","data":"$data"}"""
+                                } catch (_: Exception) {
+                                    rawResp
+                                }
+                            } else {
+                                rawResp
+                            }
+
+                            val response = responseText.toByteArray(Charsets.UTF_8)
                             exchange.responseHeaders.set("Content-Type", "application/json; charset=utf-8")
                             exchange.sendResponseHeaders(200, response.size.toLong())
                             exchange.responseBody.use { it.write(response) }
+
                         } else if (method == "GET") {
                             val notes = getCurrentNotes()
                             val array = JSONArray()
@@ -89,9 +148,14 @@ class SyncServer(
                                     put("title", n.title)
                                     put("content", n.content)
                                     put("timestamp", n.timestamp)
+                                    put("isDeleted", n.isDeleted)
                                 })
                             }
-                            val rawJson = array.toString()
+                            val rawJson = JSONObject().apply {
+                                put("status", "ok")
+                                put("notes", array)
+                            }.toString()
+
                             val isRawRequested = exchange.requestURI.path.equals("/raw", ignoreCase = true)
                             val responseText = if (isRawRequested) {
                                 array.toString(2)
@@ -112,21 +176,27 @@ class SyncServer(
                         }
                     } catch (e: AEADBadTagException) {
                         println("[Crypto] Decryption failed: invalid key or tampered data.")
-                        val errorResp = """{"error":"Decryption failed: invalid key"}""".toByteArray(Charsets.UTF_8)
+                        val errorResp = """{"error":"invalid_key","message":"Key mismatch. Re-pair via QR code."}""".toByteArray(Charsets.UTF_8)
+                        exchange.responseHeaders.set("Content-Type", "application/json; charset=utf-8")
                         exchange.sendResponseHeaders(401, errorResp.size.toLong())
                         exchange.responseBody.use { it.write(errorResp) }
                     } catch (e: Exception) {
                         e.printStackTrace()
                         val errorResp = """{"error":"${e.message}"}""".toByteArray(Charsets.UTF_8)
+                        exchange.responseHeaders.set("Content-Type", "application/json; charset=utf-8")
                         exchange.sendResponseHeaders(500, errorResp.size.toLong())
                         exchange.responseBody.use { it.write(errorResp) }
                     }
                 }
-            })
+            }
+
+            server.createContext("/", syncHandler)
+            server.createContext("/sync", syncHandler)
+            server.createContext("/notes", syncHandler)
 
             server.start()
             httpServer = server
-            println("[Server] HTTP Server started on port $httpPort (AES-256-GCM enabled).")
+            println("[Server] HTTP Sync Server started on port $httpPort (AES-256-GCM 2-Way Sync enabled).")
         } catch (e: Exception) {
             println("Failed to start HTTP server: ${e.message}")
         }

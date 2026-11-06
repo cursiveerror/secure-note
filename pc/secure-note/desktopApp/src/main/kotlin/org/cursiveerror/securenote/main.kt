@@ -13,6 +13,7 @@ import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberTrayState
 import androidx.compose.ui.window.rememberWindowState
 import java.util.UUID
+import javax.swing.SwingUtilities
 
 fun main() = application {
     val notes = remember {
@@ -27,16 +28,34 @@ fun main() = application {
         val server = SyncServer(
             httpPort = 8000,
             udpPort = 8888,
-            onNoteReceived = { newNote ->
-                val existingIndex = notes.indexOfFirst {
-                    it.id == newNote.id || (it.title == newNote.title && it.content == newNote.content)
+            onSync = { incomingNotes ->
+                val noteMap = LinkedHashMap<String, Note>()
+                synchronized(notes) {
+                    for (n in notes) {
+                        noteMap[n.id] = n
+                    }
                 }
-                if (existingIndex >= 0) {
-                    notes[existingIndex] = newNote
-                } else {
-                    notes.add(0, newNote)
+
+                for (inc in incomingNotes) {
+                    val existing = noteMap[inc.id]
+                    if (existing == null) {
+                        noteMap[inc.id] = inc
+                    } else {
+                        if (inc.timestamp > existing.timestamp) {
+                            noteMap[inc.id] = inc
+                        }
+                    }
                 }
-                NoteRepository.saveNotes(notes.toList())
+
+                val merged = noteMap.values.sortedByDescending { it.timestamp }
+                NoteRepository.saveNotes(merged)
+
+                SwingUtilities.invokeLater {
+                    notes.clear()
+                    notes.addAll(merged)
+                }
+
+                merged
             },
             getCurrentNotes = { notes.toList() }
         )
@@ -78,7 +97,9 @@ fun main() = application {
                 val newNote = Note(
                     id = UUID.randomUUID().toString(),
                     title = title,
-                    content = content
+                    content = content,
+                    timestamp = System.currentTimeMillis(),
+                    isDeleted = false
                 )
                 notes.add(0, newNote)
                 NoteRepository.saveNotes(notes.toList())
@@ -86,14 +107,25 @@ fun main() = application {
             onEditNote = { id, title, content ->
                 val index = notes.indexOfFirst { it.id == id }
                 if (index >= 0) {
-                    val updated = notes[index].copy(title = title, content = content)
+                    val updated = notes[index].copy(
+                        title = title,
+                        content = content,
+                        timestamp = System.currentTimeMillis()
+                    )
                     notes[index] = updated
                     NoteRepository.saveNotes(notes.toList())
                 }
             },
             onDeleteNote = { id ->
-                notes.removeAll { it.id == id }
-                NoteRepository.saveNotes(notes.toList())
+                val index = notes.indexOfFirst { it.id == id }
+                if (index >= 0) {
+                    val updated = notes[index].copy(
+                        isDeleted = true,
+                        timestamp = System.currentTimeMillis()
+                    )
+                    notes[index] = updated
+                    NoteRepository.saveNotes(notes.toList())
+                }
             }
         )
     }
