@@ -1,4 +1,4 @@
-# Android / Gradle
+# Gradle & Builds
 .gradle/
 build/
 android/.gradle/
@@ -6,22 +6,25 @@ android/build/
 android/app/build/
 android/.idea/
 android/local.properties
+pc/secure-note/.gradle/
+pc/secure-note/.idea/
+pc/secure-note/build/
+pc/secure-note/desktopApp/build/
+pc/secure-note/shared/build/
+pc/secure-note/local.properties
 *.iml
 .DS_Store
 
-# Keystore & Signing
+# Local Releases (kept locally, not in Git)
+release/
+*.apk
+*.exe
+*.msi
+
+# Keystores
 *.jks
 *.keystore
 
-# Local Releases
-release/
-*.apk
-
-# Python
-__pycache__/
-*.pyc
-*.pyo
-venv/
-.venv/
-notes_archive.json
+# Local Notes data
 notes.json
+notes_archive.json
