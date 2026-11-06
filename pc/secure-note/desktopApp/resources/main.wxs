@@ -14,6 +14,9 @@
 
   <?include $(var.JpConfigDir)/overrides.wxi ?>
 
+  <?define JpAllowUpgrades="yes" ?>
+  <?define JpAllowDowngrades="yes" ?>
+
   <?ifdef JpAllowUpgrades ?>
     <?define JpUpgradeVersionOnlyDetectUpgrade="no"?>
   <?else?>
@@ -26,7 +29,7 @@
   <?endif?>
 
   <Product
-    Id="$(var.JpProductCode)"
+    Id="*"
     Name="$(var.JpAppName)"
     Language="$(var.JpProductLanguage)"
     Version="$(var.JpAppVersion)"
