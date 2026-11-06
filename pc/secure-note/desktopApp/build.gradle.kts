@@ -30,6 +30,8 @@ compose.desktop {
             copyright = "© 2026 CursiveError"
             appResourcesRootDir.set(project.layout.projectDirectory.dir("resources"))
 
+            modules("java.instrument", "jdk.httpserver", "jdk.unsupported")
+
             windows {
                 iconFile.set(project.file("resources/icon.ico"))
                 menu = true
