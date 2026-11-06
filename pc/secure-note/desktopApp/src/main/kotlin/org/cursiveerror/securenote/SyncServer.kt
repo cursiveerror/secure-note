@@ -64,20 +64,30 @@ class SyncServer(
                             if (method == "POST") {
                                 val bodyBytes = exchange.requestBody.readBytes()
                                 val bodyText = String(bodyBytes, Charsets.UTF_8).trim()
-                                if (bodyText.isNotEmpty() && bodyText.startsWith("{") && bodyText.contains("\"iv\"")) {
-                                    val json = JSONObject(bodyText)
-                                    val iv = json.getString("iv")
-                                    val data = json.getString("data")
-                                    CryptoManager.decrypt(data, iv)
+                                if (bodyText.isEmpty() || !bodyText.contains("\"iv\"") || !bodyText.contains("\"data\"")) {
+                                    val err = """{"error":"unauthorized","message":"AES-256-GCM encrypted payload required to pair."}""".toByteArray(Charsets.UTF_8)
+                                    exchange.responseHeaders.set("Content-Type", "application/json; charset=utf-8")
+                                    exchange.sendResponseHeaders(401, err.size.toLong())
+                                    exchange.responseBody.use { it.write(err) }
+                                    return
                                 }
+
+                                val json = JSONObject(bodyText)
+                                val iv = json.getString("iv")
+                                val data = json.getString("data")
+                                CryptoManager.decrypt(data, iv)
+
                                 NoteRepository.setPaired(true, "Phone")
                                 onPairStatusChanged?.invoke(true)
-                                println("[SyncServer] Phone successfully paired!")
+                                println("[SyncServer] Phone successfully paired via AES-256-GCM!")
 
                                 val resp = """{"status":"ok","message":"Paired successfully"}""".toByteArray(Charsets.UTF_8)
                                 exchange.responseHeaders.set("Content-Type", "application/json; charset=utf-8")
                                 exchange.sendResponseHeaders(200, resp.size.toLong())
                                 exchange.responseBody.use { it.write(resp) }
+                                return
+                            } else {
+                                exchange.sendResponseHeaders(405, -1)
                                 return
                             }
                         }
@@ -85,12 +95,16 @@ class SyncServer(
                         if (path == "/unpair") {
                             if (method == "POST") {
                                 NoteRepository.setPaired(false)
+                                CryptoManager.regenerateKey()
                                 onPairStatusChanged?.invoke(false)
-                                println("[SyncServer] Device unpaired.")
-                                val resp = """{"status":"ok","message":"Unpaired"}""".toByteArray(Charsets.UTF_8)
+                                println("[SyncServer] Device unpaired and key regenerated.")
+                                val resp = """{"status":"ok","message":"Unpaired and key regenerated"}""".toByteArray(Charsets.UTF_8)
                                 exchange.responseHeaders.set("Content-Type", "application/json; charset=utf-8")
                                 exchange.sendResponseHeaders(200, resp.size.toLong())
                                 exchange.responseBody.use { it.write(resp) }
+                                return
+                            } else {
+                                exchange.sendResponseHeaders(405, -1)
                                 return
                             }
                         }
@@ -99,27 +113,27 @@ class SyncServer(
                             val bodyBytes = exchange.requestBody.readBytes()
                             val bodyText = String(bodyBytes, Charsets.UTF_8).trim()
 
-                            var wasEncrypted = false
-                            val finalJson: JSONObject = if (bodyText.isNotEmpty()) {
-                                val json = JSONObject(bodyText)
-                                if (json.has("iv") && json.has("data")) {
-                                    wasEncrypted = true
-                                    val iv = json.getString("iv")
-                                    val data = json.getString("data")
-                                    val decryptedText = CryptoManager.decrypt(data, iv)
-                                    println("[Sync] Decrypted incoming sync request via AES-256-GCM.")
-                                    JSONObject(decryptedText)
-                                } else {
-                                    json
-                                }
-                            } else {
-                                JSONObject()
+                            // STRICT SECURITY: Must be AES-256-GCM encrypted envelope
+                            if (bodyText.isEmpty() || !bodyText.contains("\"iv\"") || !bodyText.contains("\"data\"")) {
+                                println("[SyncServer] Rejected unencrypted sync attempt.")
+                                val err = """{"error":"unauthorized","message":"AES-256-GCM encryption required. Device is not paired."}""".toByteArray(Charsets.UTF_8)
+                                exchange.responseHeaders.set("Content-Type", "application/json; charset=utf-8")
+                                exchange.sendResponseHeaders(401, err.size.toLong())
+                                exchange.responseBody.use { it.write(err) }
+                                return
                             }
 
-                            // If sync succeeds with encryption, device is confirmed paired
+                            val envelope = JSONObject(bodyText)
+                            val iv = envelope.getString("iv")
+                            val data = envelope.getString("data")
+                            val decryptedText = CryptoManager.decrypt(data, iv)
+                            println("[Sync] Decrypted incoming sync request via AES-256-GCM.")
+
+                            // Encryption verified: confirm paired
                             NoteRepository.setPaired(true, "Phone")
                             onPairStatusChanged?.invoke(true)
 
+                            val finalJson = JSONObject(decryptedText)
                             val incomingList = mutableListOf<Note>()
                             if (finalJson.has("clientNotes")) {
                                 val clientArr = finalJson.getJSONArray("clientNotes")
@@ -135,16 +149,6 @@ class SyncServer(
                                         )
                                     )
                                 }
-                            } else if (finalJson.has("title") || finalJson.has("content")) {
-                                incomingList.add(
-                                    Note(
-                                        id = finalJson.optString("id", UUID.randomUUID().toString()),
-                                        title = finalJson.optString("title", "Untitled"),
-                                        content = finalJson.optString("content", ""),
-                                        timestamp = finalJson.optLong("timestamp", System.currentTimeMillis()),
-                                        isDeleted = finalJson.optBoolean("isDeleted", false)
-                                    )
-                                )
                             }
 
                             // Perform 2-Way synchronization merge
@@ -166,54 +170,14 @@ class SyncServer(
                                 put("notes", array)
                             }.toString()
 
-                            val responseText = if (wasEncrypted) {
-                                try {
-                                    val (iv, data) = CryptoManager.encrypt(rawResp)
-                                    """{"iv":"$iv","data":"$data"}"""
-                                } catch (_: Exception) {
-                                    rawResp
-                                }
-                            } else {
-                                rawResp
-                            }
+                            val (respIv, respData) = CryptoManager.encrypt(rawResp)
+                            val responseText = """{"iv":"$respIv","data":"$respData"}"""
 
                             val response = responseText.toByteArray(Charsets.UTF_8)
                             exchange.responseHeaders.set("Content-Type", "application/json; charset=utf-8")
                             exchange.sendResponseHeaders(200, response.size.toLong())
                             exchange.responseBody.use { it.write(response) }
 
-                        } else if (method == "GET") {
-                            val notes = getCurrentNotes()
-                            val array = JSONArray()
-                            for (n in notes) {
-                                array.put(JSONObject().apply {
-                                    put("id", n.id)
-                                    put("title", n.title)
-                                    put("content", n.content)
-                                    put("timestamp", n.timestamp)
-                                    put("isDeleted", n.isDeleted)
-                                })
-                            }
-                            val rawJson = JSONObject().apply {
-                                put("status", "ok")
-                                put("notes", array)
-                            }.toString()
-
-                            val isRawRequested = exchange.requestURI.path.equals("/raw", ignoreCase = true)
-                            val responseText = if (isRawRequested) {
-                                array.toString(2)
-                            } else {
-                                try {
-                                    val (iv, data) = CryptoManager.encrypt(rawJson)
-                                    """{"iv":"$iv","data":"$data"}"""
-                                } catch (_: Exception) {
-                                    rawJson
-                                }
-                            }
-                            val response = responseText.toByteArray(Charsets.UTF_8)
-                            exchange.responseHeaders.set("Content-Type", "application/json; charset=utf-8")
-                            exchange.sendResponseHeaders(200, response.size.toLong())
-                            exchange.responseBody.use { it.write(response) }
                         } else {
                             exchange.sendResponseHeaders(405, -1)
                         }

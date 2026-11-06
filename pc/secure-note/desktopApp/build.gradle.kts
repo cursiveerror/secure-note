@@ -26,7 +26,7 @@ compose.desktop {
         nativeDistributions {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb, TargetFormat.Exe)
             packageName = "SecureNote Desktop"
-            packageVersion = "1.0.3"
+            packageVersion = "1.0.4"
             description = "SecureNote Desktop LAN Sync"
             copyright = "© 2026 CursiveError"
             appResourcesRootDir.set(project.layout.projectDirectory.dir("resources"))

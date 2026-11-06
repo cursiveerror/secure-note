@@ -181,25 +181,39 @@ class FullSyncAuditTest {
             assertTrue(returnedNoteMap.containsKey("C"), "Note C from server must be present")
             assertFalse(returnedNoteMap["C"]!!.getBoolean("isDeleted"), "Note C must not be deleted")
 
-            // Step 5: Test /unpair endpoint
+            // Step 5: Test that UNENCRYPTED /sync request is strictly rejected with 401
+            val unencryptedSyncConn = (URL("http://127.0.0.1:$testPort/sync").openConnection() as HttpURLConnection).apply {
+                requestMethod = "POST"
+                setRequestProperty("Content-Type", "application/json")
+                doOutput = true
+            }
+            unencryptedSyncConn.outputStream.use { it.write("""{"clientNotes":[]}""".toByteArray()) }
+            assertEquals(401, unencryptedSyncConn.responseCode, "Server MUST reject unencrypted plaintext sync requests with 401")
+
+            // Step 6: Test that UNENCRYPTED /pair request is strictly rejected with 401
+            val unencryptedPairConn = (URL("http://127.0.0.1:$testPort/pair").openConnection() as HttpURLConnection).apply {
+                requestMethod = "POST"
+                setRequestProperty("Content-Type", "application/json")
+                doOutput = true
+            }
+            unencryptedPairConn.outputStream.use { it.write("""{"device":"phone"}""".toByteArray()) }
+            assertEquals(401, unencryptedPairConn.responseCode, "Server MUST reject unencrypted plaintext pair requests with 401")
+
+            // Step 7: Test /unpair endpoint - should unpair AND regenerate key
             val unpairConn = (URL("http://127.0.0.1:$testPort/unpair").openConnection() as HttpURLConnection).apply {
                 requestMethod = "POST"
             }
             assertEquals(200, unpairConn.responseCode)
             assertFalse(isPairedResult, "Server should notify paired = false after unpair")
 
-            // Step 6: Test invalid key -> 401 Unauthorized
-            val fakeKey = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
-            val (fakeIv, fakeData) = CryptoManager.encrypt("""{"test":"data"}""", CryptoManager.keyFromBase64(fakeKey))
-            val fakeBody = """{"iv":"$fakeIv","data":"$fakeData"}"""
-
-            val invalidConn = (URL("http://127.0.0.1:$testPort/sync").openConnection() as HttpURLConnection).apply {
+            // Step 8: Client attempts to sync using the OLD key after unpair -> MUST FAIL WITH 401
+            val oldKeySyncConn = (URL("http://127.0.0.1:$testPort/sync").openConnection() as HttpURLConnection).apply {
                 requestMethod = "POST"
                 setRequestProperty("Content-Type", "application/json")
                 doOutput = true
             }
-            invalidConn.outputStream.use { it.write(fakeBody.toByteArray()) }
-            assertEquals(401, invalidConn.responseCode, "Server must return 401 on key mismatch")
+            oldKeySyncConn.outputStream.use { it.write(syncBody.toByteArray()) }
+            assertEquals(401, oldKeySyncConn.responseCode, "Server MUST reject requests using old key with 401 after unpair")
 
         } finally {
             server.stop()

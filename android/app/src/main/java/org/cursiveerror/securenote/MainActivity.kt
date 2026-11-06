@@ -159,6 +159,12 @@ fun NoteScreen() {
                                     .clip(RoundedCornerShape(8.dp))
                                     .clickable(enabled = !isSyncing) {
                                         if (isSyncing) return@clickable
+                                        val currentKey = CryptoManager.getSavedKey(context)
+                                        if (currentKey.isNullOrBlank()) {
+                                            statusMessage = "Not paired! Scan QR code on PC first."
+                                            showPairingDialog = true
+                                            return@clickable
+                                        }
                                         isSyncing = true
                                         statusMessage = "Connecting..."
 
@@ -168,6 +174,7 @@ fun NoteScreen() {
                                             allNotes = mergedList
                                             isSyncing = false
                                             statusMessage = syncMsg
+                                            isPaired = CryptoManager.isPaired(context)
                                         }
                                     },
                                 color = ColorBrand
@@ -735,14 +742,17 @@ fun NoteScreen() {
                         modifier = Modifier
                             .clip(RoundedCornerShape(6.dp))
                             .clickable {
-                                val oldIp = inputIp
+                                val oldIp = CryptoManager.getSavedServerIp(context) ?: inputIp
                                 CryptoManager.clearKey(context)
                                 isPaired = false
                                 inputKey = ""
                                 inputIp = ""
+                                showPairingDialog = false
                                 statusMessage = "Unpaired"
                                 scope.launch {
-                                    notifyServerUnpaired(context, oldIp)
+                                    if (oldIp.isNotBlank()) {
+                                        notifyServerUnpaired(context, oldIp)
+                                    }
                                 }
                             }
                             .padding(horizontal = 10.dp, vertical = 6.dp)
@@ -981,18 +991,15 @@ suspend fun syncNotesWithServer(context: Context, currentNotes: List<Note>): Pai
         }.toString()
 
         val savedKey = CryptoManager.getSavedKey(context)
-        var wasEncrypted = false
+        if (savedKey.isNullOrBlank()) {
+            return@withContext Pair(currentNotes, "Device not paired! Please scan PC's QR code first.")
+        }
 
-        val payloadBytes = if (!savedKey.isNullOrBlank()) {
-            try {
-                val (iv, data) = CryptoManager.encrypt(rawPayload, savedKey)
-                wasEncrypted = true
-                """{"iv":"$iv","data":"$data"}""".toByteArray(Charsets.UTF_8)
-            } catch (_: Exception) {
-                rawPayload.toByteArray(Charsets.UTF_8)
-            }
-        } else {
-            rawPayload.toByteArray(Charsets.UTF_8)
+        val payloadBytes = try {
+            val (iv, data) = CryptoManager.encrypt(rawPayload, savedKey)
+            """{"iv":"$iv","data":"$data"}""".toByteArray(Charsets.UTF_8)
+        } catch (e: Exception) {
+            return@withContext Pair(currentNotes, "Encryption failed: ${e.message}")
         }
 
         fun trySync(ip: String): Pair<List<Note>, String>? {
@@ -1013,7 +1020,8 @@ suspend fun syncNotesWithServer(context: Context, currentNotes: List<Note>): Pai
 
                 val code = conn.responseCode
                 if (code == 401) {
-                    return Pair(currentNotes, "Key mismatch! Please scan PC's QR code to re-pair.")
+                    CryptoManager.clearKey(context)
+                    return Pair(currentNotes, "Unpaired or key mismatch! Scan PC's QR code to re-pair.")
                 }
                 if (code !in 200..299) {
                     return Pair(currentNotes, "Server error ($code)")
@@ -1021,13 +1029,13 @@ suspend fun syncNotesWithServer(context: Context, currentNotes: List<Note>): Pai
 
                 val responseText = conn.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
 
-                val decryptedText = if (wasEncrypted && responseText.trim().startsWith("{") && responseText.contains("\"iv\"")) {
+                val decryptedText = if (responseText.trim().startsWith("{") && responseText.contains("\"iv\"")) {
                     val envelope = JSONObject(responseText)
                     val iv = envelope.getString("iv")
                     val data = envelope.getString("data")
-                    CryptoManager.decrypt(data, iv, savedKey!!)
+                    CryptoManager.decrypt(data, iv, savedKey)
                 } else {
-                    responseText
+                    return Pair(currentNotes, "Invalid server response (unencrypted)")
                 }
 
                 val respObj = JSONObject(decryptedText)
