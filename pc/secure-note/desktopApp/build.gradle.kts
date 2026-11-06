@@ -16,6 +16,7 @@ dependencies {
     implementation(libs.compose.uiToolingPreview)
     implementation("org.json:json:20240303")
     implementation("com.google.zxing:core:3.5.3")
+    testImplementation(libs.kotlin.test)
 }
 
 compose.desktop {
