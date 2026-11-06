@@ -7,15 +7,20 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
@@ -23,10 +28,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import org.cursiveerror.securenote.ui.theme.SecureNoteTheme
+import androidx.compose.ui.unit.sp
+import com.google.mlkit.vision.codescanner.GmsBarcodeScanning
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.cursiveerror.securenote.ui.theme.SecureNoteTheme
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
@@ -35,13 +42,17 @@ import java.net.DatagramSocket
 import java.net.HttpURLConnection
 import java.net.InetAddress
 import java.net.URL
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import java.util.UUID
 
 data class Note(
     val id: String = UUID.randomUUID().toString(),
     val title: String,
     val content: String,
-    val isSynced: Boolean = false
+    val isSynced: Boolean = false,
+    val timestamp: Long = System.currentTimeMillis()
 )
 
 class MainActivity : ComponentActivity() {
@@ -50,352 +61,371 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             SecureNoteTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    NoteScreen(modifier = Modifier.padding(innerPadding))
-                }
+                NoteScreen()
             }
         }
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun NoteScreen(modifier: Modifier = Modifier) {
+fun NoteScreen() {
     val context = LocalContext.current
     val clipboardManager = LocalClipboardManager.current
     val scope = rememberCoroutineScope()
 
     var notes by remember { mutableStateOf(loadLocalNotes(context)) }
-    var title by remember { mutableStateOf("") }
-    var content by remember { mutableStateOf("") }
+    var searchQuery by remember { mutableStateOf("") }
     var statusMessage by remember { mutableStateOf("") }
     var isSyncing by remember { mutableStateOf(false) }
     var isPaired by remember { mutableStateOf(CryptoManager.isPaired(context)) }
     var showPairingDialog by remember { mutableStateOf(false) }
-
-    // Стан вибраної нотатки для перегляду та редагування
+    var showCreateDialog by remember { mutableStateOf(false) }
     var selectedNote by remember { mutableStateOf<Note?>(null) }
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
-    ) {
-        // 1. Верхня панель: Заголовок + кнопки
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column {
-                Text(
-                    text = "SecureNote",
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                OutlinedButton(
-                    onClick = { showPairingDialog = true },
-                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
-                ) {
-                    Text(if (isPaired) "AES-256" else "Pair PC")
-                }
-
-                FilledTonalButton(
-                    onClick = {
-                        if (isSyncing) return@FilledTonalButton
-
-                        val unsyncedCount = notes.count { !it.isSynced }
-                        if (unsyncedCount == 0) {
-                            statusMessage = "All notes are already synced"
-                            return@FilledTonalButton
-                        }
-
-                        isSyncing = true
-                        statusMessage = "Searching for PC in local Wi-Fi..."
-
-                        scope.launch {
-                            val serverIp = discoverServerIp(context)
-                            if (serverIp == null) {
-                                statusMessage = "PC not found. Make sure phone and PC are on the same Wi-Fi"
-                                isSyncing = false
-                                return@launch
-                            }
-
-                            statusMessage = "Found PC at $serverIp! Syncing $unsyncedCount note(s)..."
-
-                            val (updatedList, countSynced) = syncNotesWithServer(context, notes, serverIp)
-                            saveLocalNotes(context, updatedList)
-                            notes = updatedList
-                            isSyncing = false
-
-                            statusMessage = if (countSynced > 0) {
-                                "Synced $countSynced note(s) with PC ($serverIp)!"
-                            } else {
-                                "Failed to deliver note(s) to $serverIp."
-                            }
-                        }
-                    },
-                    enabled = !isSyncing
-                ) {
-                    Text(if (isSyncing) "Searching..." else "Sync")
-                }
+    val filteredNotes = remember(notes, searchQuery) {
+        if (searchQuery.isBlank()) {
+            notes
+        } else {
+            notes.filter {
+                it.title.contains(searchQuery, ignoreCase = true) ||
+                it.content.contains(searchQuery, ignoreCase = true)
             }
         }
+    }
 
-        // Повідомлення статусу
-        if (statusMessage.isNotEmpty()) {
-            Surface(
-                color = MaterialTheme.colorScheme.primaryContainer,
-                shape = RoundedCornerShape(8.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(
-                    text = statusMessage,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer,
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
-                )
-            }
-        }
-
-        // 2. Блок створення нової нотатки
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surface
-            ),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-        ) {
-            Column(
-                modifier = Modifier.padding(14.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                OutlinedTextField(
-                    value = title,
-                    onValueChange = { title = it },
-                    label = { Text("Title") },
-                    placeholder = { Text("Enter title...") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
-                )
-
-                OutlinedTextField(
-                    value = content,
-                    onValueChange = { content = it },
-                    label = { Text("Content") },
-                    placeholder = { Text("Enter content...") },
-                    modifier = Modifier.fillMaxWidth(),
-                    minLines = 3
-                )
-
-                Button(
-                    onClick = {
-                        if (title.isBlank() && content.isBlank()) {
-                            statusMessage = "Write something before saving"
-                            return@Button
-                        }
-
-                        val newNote = Note(
-                            title = title.trim(),
-                            content = content.trim(),
-                            isSynced = false
-                        )
-                        val updatedList = listOf(newNote) + notes
-                        saveLocalNotes(context, updatedList)
-                        notes = updatedList
-
-                        title = ""
-                        content = ""
-                        statusMessage = "Note saved"
-                    },
-                    modifier = Modifier.align(Alignment.End)
-                ) {
-                    Text("Save")
-                }
-            }
-        }
-
-        // 3. Список нотаток
-        Text(
-            text = "Saved Notes (${notes.size})",
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.SemiBold
-        )
-
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            items(notes, key = { it.id }) { note ->
-                // Натискання на всю картку відкриває перегляд і редагування
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { selectedNote = note },
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {
+                    Text(
+                        text = "SecureNote",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 20.sp
                     )
-                ) {
-                    Column(modifier = Modifier.padding(14.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = if (note.title.isNotBlank()) note.title else "Untitled",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.weight(1f)
-                            )
-
-                            // Лаконічний бейдж статусу
-                            Surface(
-                                color = if (note.isSynced) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.outlineVariant,
-                                shape = RoundedCornerShape(12.dp)
-                            ) {
-                                Text(
-                                    text = if (note.isSynced) "Synced" else "Local",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = if (note.isSynced) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
-                                )
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(6.dp))
-
+                },
+                actions = {
+                    // Lock / Pairing status button
+                    OutlinedButton(
+                        onClick = { showPairingDialog = true },
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                        modifier = Modifier.height(36.dp)
+                    ) {
                         Text(
-                            text = note.content,
-                            style = MaterialTheme.typography.bodyMedium,
-                            maxLines = 3,
-                            overflow = TextOverflow.Ellipsis
+                            text = if (isPaired) "🔐 AES-256" else "🔑 Pair PC",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = if (isPaired) Color(0xFF2E7D32) else MaterialTheme.colorScheme.primary
                         )
+                    }
 
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    // 2-Way Sync button
+                    FilledTonalButton(
+                        onClick = {
+                            if (isSyncing) return@FilledTonalButton
+                            isSyncing = true
+                            statusMessage = "Discovering PC on local Wi-Fi..."
+
+                            scope.launch {
+                                val serverIp = discoverServerIp(context)
+                                if (serverIp == null) {
+                                    statusMessage = "PC not found. Ensure both devices are on the same Wi-Fi."
+                                    isSyncing = false
+                                    return@launch
+                                }
+
+                                statusMessage = "Connected to $serverIp! Synchronizing notes..."
+                                val (mergedList, syncMsg) = syncNotesWithServer(context, notes, serverIp)
+                                saveLocalNotes(context, mergedList)
+                                notes = mergedList
+                                isSyncing = false
+                                statusMessage = syncMsg
+                            }
+                        },
+                        enabled = !isSyncing,
+                        modifier = Modifier.height(36.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                    ) {
+                        Text(
+                            text = if (isSyncing) "Syncing..." else "Sync 🔄",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.width(8.dp))
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface
+                )
+            )
+        },
+        floatingActionButton = {
+            FloatingActionButton(
+                onClick = { showCreateDialog = true },
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary
+            ) {
+                Text("+", fontSize = 28.sp, fontWeight = FontWeight.Light)
+            }
+        }
+    ) { innerPadding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            // Status bar message banner
+            AnimatedVisibility(visible = statusMessage.isNotEmpty()) {
+                Surface(
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = statusMessage,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Text(
+                            text = "✕",
+                            modifier = Modifier
+                                .clickable { statusMessage = "" }
+                                .padding(start = 8.dp),
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    }
+                }
+            }
+
+            // Search textfield
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                placeholder = { Text("Search saved notes...") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                shape = RoundedCornerShape(12.dp)
+            )
+
+            // Notes list or empty state
+            if (filteredNotes.isEmpty()) {
+                Box(
+                    modifier = Modifier.weight(1f).fillMaxWidth(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            text = if (searchQuery.isNotBlank()) "No notes match search" else "No notes yet",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color.Gray
+                        )
                         Spacer(modifier = Modifier.height(4.dp))
-
-                        // Тільки корисні дії: швидке копіювання та видалення
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.End,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            TextButton(
-                                onClick = {
-                                    val textToCopy = if (note.title.isNotBlank()) "${note.title}\n\n${note.content}" else note.content
-                                    clipboardManager.setText(AnnotatedString(textToCopy))
-                                    Toast.makeText(context, "Copied to clipboard", Toast.LENGTH_SHORT).show()
-                                },
-                                contentPadding = PaddingValues(horizontal = 8.dp)
-                            ) {
-                                Text("Copy")
+                        Text(
+                            text = if (searchQuery.isNotBlank()) "Try another keyword" else "Tap the '+' button below to write your first note!",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color.DarkGray
+                        )
+                    }
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier.weight(1f).fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    contentPadding = PaddingValues(bottom = 80.dp)
+                ) {
+                    items(filteredNotes, key = { it.id }) { note ->
+                        NoteCardItem(
+                            note = note,
+                            onClick = { selectedNote = note },
+                            onCopy = {
+                                val textToCopy = if (note.title.isNotBlank()) "${note.title}\n\n${note.content}" else note.content
+                                clipboardManager.setText(AnnotatedString(textToCopy))
+                                Toast.makeText(context, "Copied to clipboard", Toast.LENGTH_SHORT).show()
+                            },
+                            onDelete = {
+                                val updated = notes.filter { it.id != note.id }
+                                saveLocalNotes(context, updated)
+                                notes = updated
+                                statusMessage = "Note deleted"
                             }
-
-                            TextButton(
-                                onClick = {
-                                    val updatedList = notes.filter { it.id != note.id }
-                                    saveLocalNotes(context, updatedList)
-                                    notes = updatedList
-                                    statusMessage = "Note deleted"
-                                },
-                                contentPadding = PaddingValues(horizontal = 8.dp),
-                                colors = ButtonDefaults.textButtonColors(
-                                    contentColor = MaterialTheme.colorScheme.error
-                                )
-                            ) {
-                                Text("Delete")
-                            }
-                        }
+                        )
                     }
                 }
             }
         }
     }
 
-    // Діалогове вікно перегляду та редагування (відкривається при тапі на картку)
-    selectedNote?.let { currentNote ->
-        var editTitle by remember(currentNote) { mutableStateOf(currentNote.title) }
-        var editContent by remember(currentNote) { mutableStateOf(currentNote.content) }
+    // Dialog for creating a new note
+    if (showCreateDialog) {
+        var newTitle by remember { mutableStateOf("") }
+        var newContent by remember { mutableStateOf("") }
 
         AlertDialog(
-            onDismissRequest = { selectedNote = null },
-            title = { Text("Edit Note") },
+            onDismissRequest = { showCreateDialog = false },
+            title = { Text("New Note", fontWeight = FontWeight.Bold) },
             text = {
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     OutlinedTextField(
-                        value = editTitle,
-                        onValueChange = { editTitle = it },
+                        value = newTitle,
+                        onValueChange = { newTitle = it },
                         label = { Text("Title") },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    OutlinedTextField(
-                        value = editContent,
-                        onValueChange = { editContent = it },
-                        label = { Text("Content") },
                         modifier = Modifier.fillMaxWidth(),
-                        minLines = 5
+                        singleLine = true
+                    )
+                    OutlinedTextField(
+                        value = newContent,
+                        onValueChange = { newContent = it },
+                        label = { Text("Content") },
+                        modifier = Modifier.fillMaxWidth().height(160.dp),
+                        maxLines = 8
                     )
                 }
             },
             confirmButton = {
                 Button(
                     onClick = {
-                        val updatedList = notes.map {
-                            if (it.id == currentNote.id) {
-                                it.copy(
-                                    title = editTitle.trim(),
-                                    content = editContent.trim(),
-                                    isSynced = false
-                                )
-                            } else it
+                        if (newTitle.isNotBlank() || newContent.isNotBlank()) {
+                            val newNote = Note(
+                                title = newTitle.trim(),
+                                content = newContent.trim(),
+                                isSynced = false,
+                                timestamp = System.currentTimeMillis()
+                            )
+                            val updated = listOf(newNote) + notes
+                            saveLocalNotes(context, updated)
+                            notes = updated
+                            showCreateDialog = false
+                            statusMessage = "Note saved locally. Tap 'Sync' to push to PC."
                         }
-                        saveLocalNotes(context, updatedList)
-                        notes = updatedList
-                        selectedNote = null
-                        statusMessage = "Note updated locally"
                     }
                 ) {
-                    Text("Save Changes")
+                    Text("Save")
                 }
             },
             dismissButton = {
-                OutlinedButton(onClick = { selectedNote = null }) {
+                TextButton(onClick = { showCreateDialog = false }) {
                     Text("Cancel")
                 }
             }
         )
     }
 
-    // Діалогове вікно спарювання з ПК (AES-256)
+    // Dialog for viewing and editing existing note
+    selectedNote?.let { currentNote ->
+        var editTitle by remember(currentNote) { mutableStateOf(currentNote.title) }
+        var editContent by remember(currentNote) { mutableStateOf(currentNote.content) }
+
+        AlertDialog(
+            onDismissRequest = { selectedNote = null },
+            title = { Text("Edit Note", fontWeight = FontWeight.Bold) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    OutlinedTextField(
+                        value = editTitle,
+                        onValueChange = { editTitle = it },
+                        label = { Text("Title") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+                    OutlinedTextField(
+                        value = editContent,
+                        onValueChange = { editContent = it },
+                        label = { Text("Content") },
+                        modifier = Modifier.fillMaxWidth().height(160.dp),
+                        maxLines = 8
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val updated = notes.map {
+                            if (it.id == currentNote.id) {
+                                it.copy(
+                                    title = editTitle.trim(),
+                                    content = editContent.trim(),
+                                    isSynced = false,
+                                    timestamp = System.currentTimeMillis()
+                                )
+                            } else it
+                        }
+                        saveLocalNotes(context, updated)
+                        notes = updated
+                        selectedNote = null
+                        statusMessage = "Note updated locally"
+                    }
+                ) {
+                    Text("Save")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { selectedNote = null }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
+    // Dialog for pairing with PC (QR scanner + manual paste)
     if (showPairingDialog) {
         var inputKey by remember { mutableStateOf(CryptoManager.getSavedKey(context) ?: "") }
+
         AlertDialog(
             onDismissRequest = { showPairingDialog = false },
             title = { Text("PC Pairing (AES-256)", fontWeight = FontWeight.Bold) },
             text = {
                 Column(
                     modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Text(
-                        text = "Enter or paste the pairing key from your PC (click 'Pair Phone (QR)' in the PC app):",
+                        text = "Scan the QR code from the PC app ('Pair Phone' button) or paste the key below:",
                         style = MaterialTheme.typography.bodyMedium
                     )
+
+                    // One-tap Google QR Scanner button
+                    FilledTonalButton(
+                        onClick = {
+                            try {
+                                val scanner = GmsBarcodeScanning.getClient(context)
+                                scanner.startScan()
+                                    .addOnSuccessListener { barcode ->
+                                        val rawValue = barcode.rawValue ?: ""
+                                        if (rawValue.isNotBlank()) {
+                                            CryptoManager.saveKey(context, rawValue)
+                                            isPaired = true
+                                            showPairingDialog = false
+                                            statusMessage = "Paired via QR Code! AES-256-GCM active."
+                                        }
+                                    }
+                                    .addOnFailureListener { e ->
+                                        Toast.makeText(context, "Scanner: ${e.message}", Toast.LENGTH_SHORT).show()
+                                    }
+                            } catch (e: Exception) {
+                                Toast.makeText(context, "Could not open scanner: ${e.message}", Toast.LENGTH_SHORT).show()
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("📷 Scan QR Code from PC")
+                    }
 
                     OutlinedTextField(
                         value = inputKey,
                         onValueChange = { inputKey = it },
-                        label = { Text("Pairing Key or QR text") },
+                        label = { Text("Or paste Key manually") },
                         modifier = Modifier.fillMaxWidth(),
                         minLines = 2,
                         maxLines = 4
@@ -404,7 +434,7 @@ fun NoteScreen(modifier: Modifier = Modifier) {
                     if (isPaired) {
                         Text(
                             text = "Status: Encrypted with AES-256-GCM",
-                            color = androidx.compose.ui.graphics.Color(0xFF2E7D32),
+                            color = Color(0xFF2E7D32),
                             fontWeight = FontWeight.SemiBold,
                             style = MaterialTheme.typography.bodySmall
                         )
@@ -447,7 +477,98 @@ fun NoteScreen(modifier: Modifier = Modifier) {
     }
 }
 
-// 📡 UDP Broadcast Автовиявлення комп'ютера у Wi-Fi мережі
+@Composable
+fun NoteCardItem(
+    note: Note,
+    onClick: () -> Unit,
+    onCopy: () -> Unit,
+    onDelete: () -> Unit
+) {
+    val dateFormat = remember { SimpleDateFormat("dd MMM, HH:mm", Locale.getDefault()) }
+    val formattedDate = remember(note.timestamp) { dateFormat.format(Date(note.timestamp)) }
+
+    ElevatedCard(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() },
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Column(modifier = Modifier.fillMaxWidth().padding(14.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = note.title.ifBlank { "Untitled Note" },
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
+                )
+
+                // Sync status indicator badge
+                Surface(
+                    color = if (note.isSynced) Color(0xFFE8F5E9) else Color(0xFFFFF3E0),
+                    shape = RoundedCornerShape(6.dp)
+                ) {
+                    Text(
+                        text = if (note.isSynced) "Synced" else "Local only",
+                        color = if (note.isSynced) Color(0xFF2E7D32) else Color(0xFFE65100),
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            Text(
+                text = formattedDate,
+                style = MaterialTheme.typography.bodySmall,
+                color = Color.Gray
+            )
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            Text(
+                text = note.content,
+                style = MaterialTheme.typography.bodyMedium,
+                maxLines = 3,
+                overflow = TextOverflow.Ellipsis
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                TextButton(
+                    onClick = onCopy,
+                    contentPadding = PaddingValues(horizontal = 8.dp)
+                ) {
+                    Text("Copy")
+                }
+
+                TextButton(
+                    onClick = onDelete,
+                    contentPadding = PaddingValues(horizontal = 8.dp),
+                    colors = ButtonDefaults.textButtonColors(
+                        contentColor = MaterialTheme.colorScheme.error
+                    )
+                ) {
+                    Text("Delete")
+                }
+            }
+        }
+    }
+}
+
+// 📡 UDP Broadcast Auto-Discovery
 suspend fun discoverServerIp(context: Context): String? = withContext(Dispatchers.IO) {
     var socket: DatagramSocket? = null
     var multicastLock: WifiManager.MulticastLock? = null
@@ -488,14 +609,17 @@ suspend fun discoverServerIp(context: Context): String? = withContext(Dispatcher
     null
 }
 
-suspend fun syncNotesWithServer(context: Context, currentNotes: List<Note>, serverIp: String): Pair<List<Note>, Int> {
+// 🔄 Two-Way LAN Synchronization
+suspend fun syncNotesWithServer(context: Context, currentNotes: List<Note>, serverIp: String): Pair<List<Note>, String> {
     return withContext(Dispatchers.IO) {
-        var syncedCount = 0
-        val updatedList = currentNotes.map { note ->
+        var pushedCount = 0
+
+        // Phase 1: Push unsynced notes to PC
+        val afterPushList = currentNotes.map { note ->
             if (!note.isSynced) {
-                val success = sendNoteToHost(note.title, note.content, serverIp, context)
+                val success = sendNoteToHost(note.id, note.title, note.content, note.timestamp, serverIp, context)
                 if (success) {
-                    syncedCount++
+                    pushedCount++
                     note.copy(isSynced = true)
                 } else {
                     note
@@ -504,11 +628,37 @@ suspend fun syncNotesWithServer(context: Context, currentNotes: List<Note>, serv
                 note
             }
         }
-        Pair(updatedList, syncedCount)
+
+        // Phase 2: Pull all notes from PC
+        val (pulledNotes, pullSuccess) = fetchNotesFromHost(serverIp, context)
+        if (!pullSuccess) {
+            val msg = if (pushedCount > 0) "Sent $pushedCount note(s) to PC." else "Failed to connect to PC."
+            return@withContext Pair(afterPushList, msg)
+        }
+
+        // Phase 3: Merge notes
+        val noteMap = afterPushList.associateBy { it.id }.toMutableMap()
+        var newFromPcCount = 0
+
+        for (remote in pulledNotes) {
+            val existing = noteMap[remote.id]
+            if (existing == null) {
+                noteMap[remote.id] = remote.copy(isSynced = true)
+                newFromPcCount++
+            } else {
+                if (remote.timestamp > existing.timestamp) {
+                    noteMap[remote.id] = remote.copy(isSynced = true)
+                }
+            }
+        }
+
+        val mergedList = noteMap.values.sortedByDescending { it.timestamp }
+        val finalMsg = "Synced! Sent $pushedCount note(s), received $newFromPcCount new from PC."
+        Pair(mergedList, finalMsg)
     }
 }
 
-fun sendNoteToHost(title: String, content: String, host: String, context: Context): Boolean {
+fun sendNoteToHost(id: String, title: String, content: String, timestamp: Long, host: String, context: Context): Boolean {
     return try {
         val url = URL("http://$host:8000")
         val conn = url.openConnection() as HttpURLConnection
@@ -520,12 +670,12 @@ fun sendNoteToHost(title: String, content: String, host: String, context: Contex
 
         val escapedTitle = title.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n")
         val escapedContent = content.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n")
-        val rawJson = """{"title": "$escapedTitle", "content": "$escapedContent"}"""
+        val rawJson = """{"id":"$id","title":"$escapedTitle","content":"$escapedContent","timestamp":$timestamp}"""
 
         val savedKey = CryptoManager.getSavedKey(context)
         val jsonPayload = if (!savedKey.isNullOrBlank()) {
             val (iv, data) = CryptoManager.encrypt(rawJson, savedKey)
-            """{"iv": "$iv", "data": "$data"}"""
+            """{"iv":"$iv","data":"$data"}"""
         } else {
             rawJson
         }
@@ -540,19 +690,68 @@ fun sendNoteToHost(title: String, content: String, host: String, context: Contex
     }
 }
 
+fun fetchNotesFromHost(host: String, context: Context): Pair<List<Note>, Boolean> {
+    return try {
+        val url = URL("http://$host:8000/notes")
+        val conn = url.openConnection() as HttpURLConnection
+        conn.requestMethod = "GET"
+        conn.connectTimeout = 3000
+        conn.readTimeout = 3000
+
+        if (conn.responseCode !in 200..299) {
+            return Pair(emptyList(), false)
+        }
+
+        val responseText = conn.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
+        val savedKey = CryptoManager.getSavedKey(context)
+
+        val jsonArrayText = if (responseText.trim().startsWith("{") && responseText.contains("\"iv\"")) {
+            val envelope = JSONObject(responseText)
+            val iv = envelope.getString("iv")
+            val data = envelope.getString("data")
+            if (savedKey.isNullOrBlank()) {
+                return Pair(emptyList(), false)
+            }
+            CryptoManager.decrypt(data, iv, savedKey)
+        } else {
+            responseText
+        }
+
+        val array = JSONArray(jsonArrayText)
+        val list = mutableListOf<Note>()
+        for (i in 0 until array.length()) {
+            val obj = array.getJSONObject(i)
+            list.add(
+                Note(
+                    id = obj.optString("id", UUID.randomUUID().toString()),
+                    title = obj.optString("title", ""),
+                    content = obj.optString("content", ""),
+                    isSynced = true,
+                    timestamp = obj.optLong("timestamp", System.currentTimeMillis())
+                )
+            )
+        }
+        Pair(list, true)
+    } catch (_: Exception) {
+        Pair(emptyList(), false)
+    }
+}
+
 fun saveLocalNotes(context: Context, notes: List<Note>) {
     try {
         val file = File(context.filesDir, "notes.json")
         val jsonArray = JSONArray()
         for (note in notes) {
-            val obj = JSONObject()
-            obj.put("id", note.id)
-            obj.put("title", note.title)
-            obj.put("content", note.content)
-            obj.put("isSynced", note.isSynced)
+            val obj = JSONObject().apply {
+                put("id", note.id)
+                put("title", note.title)
+                put("content", note.content)
+                put("isSynced", note.isSynced)
+                put("timestamp", note.timestamp)
+            }
             jsonArray.put(obj)
         }
-        file.writeText(jsonArray.toString())
+        file.writeText(jsonArray.toString(2))
     } catch (e: Exception) {
         e.printStackTrace()
     }
@@ -573,7 +772,8 @@ fun loadLocalNotes(context: Context): List<Note> {
                     id = obj.optString("id", UUID.randomUUID().toString()),
                     title = obj.optString("title", ""),
                     content = obj.optString("content", ""),
-                    isSynced = obj.optBoolean("isSynced", false)
+                    isSynced = obj.optBoolean("isSynced", false),
+                    timestamp = obj.optLong("timestamp", System.currentTimeMillis())
                 )
             )
         }
@@ -588,8 +788,6 @@ fun loadLocalNotes(context: Context): List<Note> {
 @Composable
 fun NoteScreenPreview() {
     SecureNoteTheme {
-        Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-            NoteScreen(modifier = Modifier.padding(innerPadding))
-        }
+        NoteScreen()
     }
 }

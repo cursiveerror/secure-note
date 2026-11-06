@@ -1,7 +1,9 @@
 package org.cursiveerror.securenote
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.foundation.Image
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -15,9 +17,12 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -39,10 +44,16 @@ fun DesktopApp(
 ) {
     val clipboardManager = LocalClipboardManager.current
     var searchQuery by remember { mutableStateOf("") }
-    var showAddDialog by remember { mutableStateOf(false) }
+    var selectedNoteId by remember { mutableStateOf<String?>(notes.firstOrNull()?.id) }
     var showPairingDialog by remember { mutableStateOf(false) }
-    var editingNote by remember { mutableStateOf<Note?>(null) }
     var notificationMessage by remember { mutableStateOf<String?>(null) }
+
+    // Synchronize selection if note list changes
+    LaunchedEffect(notes) {
+        if (selectedNoteId == null || notes.none { it.id == selectedNoteId }) {
+            selectedNoteId = notes.firstOrNull()?.id
+        }
+    }
 
     val filteredNotes = remember(notes, searchQuery) {
         if (searchQuery.isBlank()) {
@@ -55,84 +66,61 @@ fun DesktopApp(
         }
     }
 
+    val selectedNote = remember(notes, selectedNoteId) {
+        notes.firstOrNull { it.id == selectedNoteId }
+    }
+
     MaterialTheme(
         colorScheme = lightColorScheme(
-            primary = Color(0xFF64ABD0),
+            primary = Color(0xFF1976D2),
             onPrimary = Color.White,
             primaryContainer = Color(0xFFE3F2FD),
-            onPrimaryContainer = Color(0xFF003250),
-            surface = Color(0xFFFBFBFB),
-            onSurface = Color(0xFF1C1B1F)
+            onPrimaryContainer = Color(0xFF0D47A1),
+            surface = Color.White,
+            surfaceVariant = Color(0xFFF1F3F5),
+            onSurface = Color(0xFF1F1F1F)
         )
     ) {
         Scaffold(
-            topBar = {
+            bottomBar = {
+                // Bottom Status Bar
                 Surface(
-                    color = MaterialTheme.colorScheme.surface,
-                    tonalElevation = 2.dp,
-                    shadowElevation = 2.dp
+                    color = Color(0xFFECEFF1),
+                    modifier = Modifier.fillMaxWidth().height(28.dp),
+                    tonalElevation = 1.dp
                 ) {
-                    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 14.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column {
-                                Text(
-                                    text = "SecureNote Desktop",
-                                    fontSize = 24.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(10.dp)
-                                            .clip(CircleShape)
-                                            .background(Color(0xFF2E7D32))
-                                    )
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text(
-                                        text = "Sync Server: http://$serverIp:8000 (AES-256-GCM Active)",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = Color(0xFF2E7D32),
-                                        fontWeight = FontWeight.Medium
-                                    )
-                                }
-                            }
-
-                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                OutlinedButton(
-                                    onClick = { showPairingDialog = true },
-                                    shape = RoundedCornerShape(10.dp)
-                                ) {
-                                    Text("Pair Phone (QR)")
-                                }
-
-                                Button(
-                                    onClick = { showAddDialog = true },
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = MaterialTheme.colorScheme.primary
-                                    ),
-                                    shape = RoundedCornerShape(10.dp)
-                                ) {
-                                    Text("+ New Note", fontWeight = FontWeight.SemiBold)
-                                }
-                            }
+                    Row(
+                        modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(8.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFF2E7D32))
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "Sync Server: http://$serverIp:8000 (UDP: 8888)",
+                                fontSize = 11.sp,
+                                color = Color(0xFF37474F),
+                                fontWeight = FontWeight.Medium
+                            )
+                            Spacer(modifier = Modifier.width(16.dp))
+                            Text(
+                                text = "🔐 AES-256-GCM Active",
+                                fontSize = 11.sp,
+                                color = Color(0xFF2E7D32),
+                                fontWeight = FontWeight.SemiBold
+                            )
                         }
 
-                        Spacer(modifier = Modifier.height(14.dp))
-
-                        // Search Bar
-                        OutlinedTextField(
-                            value = searchQuery,
-                            onValueChange = { searchQuery = it },
-                            placeholder = { Text("Search notes by title or content...") },
-                            modifier = Modifier.fillMaxWidth(),
-                            singleLine = true,
-                            shape = RoundedCornerShape(12.dp)
+                        Text(
+                            text = "${notes.size} note${if (notes.size == 1) "" else "s"}",
+                            fontSize = 11.sp,
+                            color = Color(0xFF546E7A)
                         )
                     }
                 }
@@ -142,47 +130,149 @@ fun DesktopApp(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(paddingValues)
-                    .background(Color(0xFFF5F6F8))
             ) {
-                if (filteredNotes.isEmpty()) {
+                // Master-Detail Layout
+                Row(modifier = Modifier.fillMaxSize()) {
+                    // LEFT SIDEBAR: Notes list + search
                     Column(
-                        modifier = Modifier.fillMaxSize().padding(32.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
+                        modifier = Modifier
+                            .width(330.dp)
+                            .fillMaxHeight()
+                            .background(Color(0xFFF7F8FA))
+                            .border(width = 1.dp, color = Color(0xFFE0E0E0))
                     ) {
-                        Text(
-                            text = if (searchQuery.isNotBlank()) "No notes match '$searchQuery'" else "No notes stored yet",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.SemiBold,
-                            color = Color.Gray
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = if (searchQuery.isNotBlank()) "Try searching for a different keyword" else "Open SecureNote on your Android phone, pair via QR code, and tap 'Sync with PC'!",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = Color.DarkGray
-                        )
-                    }
-                } else {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 16.dp),
-                        verticalArrangement = Arrangement.spacedBy(14.dp)
-                    ) {
-                        items(filteredNotes, key = { it.id }) { note ->
-                            NoteCard(
-                                note = note,
-                                onCopy = {
-                                    clipboardManager.setText(AnnotatedString(note.content))
-                                    notificationMessage = "Copied to clipboard!"
-                                },
-                                onEdit = { editingNote = note },
-                                onDelete = { onDeleteNote(note.id) }
+                        // Sidebar Header
+                        Column(modifier = Modifier.fillMaxWidth().padding(14.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "SecureNote",
+                                    fontSize = 20.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF1A1A1A)
+                                )
+
+                                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    IconButton(
+                                        onClick = { showPairingDialog = true },
+                                        modifier = Modifier.size(34.dp)
+                                    ) {
+                                        Text("📱", fontSize = 16.sp)
+                                    }
+
+                                    Button(
+                                        onClick = {
+                                            val newTitle = "Untitled Note"
+                                            val newContent = ""
+                                            onAddNote(newTitle, newContent)
+                                            notificationMessage = "New note created!"
+                                        },
+                                        shape = RoundedCornerShape(8.dp),
+                                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                                        modifier = Modifier.height(34.dp)
+                                    ) {
+                                        Text("+ New", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                    }
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(10.dp))
+
+                            // Search bar
+                            OutlinedTextField(
+                                value = searchQuery,
+                                onValueChange = { searchQuery = it },
+                                placeholder = { Text("Search notes...", fontSize = 13.sp) },
+                                modifier = Modifier.fillMaxWidth().height(48.dp),
+                                singleLine = true,
+                                shape = RoundedCornerShape(10.dp),
+                                textStyle = TextStyle(fontSize = 13.sp),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedContainerColor = Color.White,
+                                    unfocusedContainerColor = Color.White
+                                )
                             )
+                        }
+
+                        // Notes List
+                        if (filteredNotes.isEmpty()) {
+                            Box(
+                                modifier = Modifier.fillMaxSize().padding(24.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = if (searchQuery.isNotBlank()) "No notes match search" else "No notes yet.\nClick '+ New' to start!",
+                                    fontSize = 13.sp,
+                                    color = Color.Gray,
+                                    textAlign = TextAlign.Center
+                                )
+                            }
+                        } else {
+                            LazyColumn(
+                                modifier = Modifier.fillMaxSize().padding(horizontal = 10.dp),
+                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                items(filteredNotes, key = { it.id }) { note ->
+                                    val isSelected = note.id == selectedNoteId
+                                    NoteListItem(
+                                        note = note,
+                                        isSelected = isSelected,
+                                        onClick = { selectedNoteId = note.id }
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    // RIGHT PANE: Note Editor / Viewer
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color.White)
+                    ) {
+                        if (selectedNote != null) {
+                            NoteEditorPane(
+                                note = selectedNote,
+                                onUpdate = { title, content ->
+                                    onEditNote(selectedNote.id, title, content)
+                                },
+                                onCopy = {
+                                    clipboardManager.setText(AnnotatedString(selectedNote.content))
+                                    notificationMessage = "Note copied to clipboard!"
+                                },
+                                onDelete = {
+                                    onDeleteNote(selectedNote.id)
+                                    notificationMessage = "Note deleted"
+                                }
+                            )
+                        } else {
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text(
+                                        text = "No Note Selected",
+                                        fontSize = 18.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = Color.Gray
+                                    )
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                    Text(
+                                        text = "Select a note from the left, or click '+ New' to create one.",
+                                        fontSize = 13.sp,
+                                        color = Color.DarkGray
+                                    )
+                                }
+                            }
                         }
                     }
                 }
 
-                // Temporary notification banner
+                // Temporary notification toast
                 notificationMessage?.let { msg ->
                     LaunchedEffect(msg) {
                         kotlinx.coroutines.delay(2000)
@@ -191,16 +281,16 @@ fun DesktopApp(
                     Surface(
                         modifier = Modifier
                             .align(Alignment.BottomCenter)
-                            .padding(bottom = 24.dp),
+                            .padding(bottom = 36.dp),
                         shape = RoundedCornerShape(20.dp),
-                        color = Color(0xFF323232),
-                        shadowElevation = 6.dp
+                        color = Color(0xFF263238),
+                        shadowElevation = 8.dp
                     ) {
                         Text(
                             text = msg,
                             color = Color.White,
-                            modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp),
-                            style = MaterialTheme.typography.bodyMedium
+                            modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+                            fontSize = 13.sp
                         )
                     }
                 }
@@ -214,38 +304,177 @@ fun DesktopApp(
                 onCopyKey = {
                     val key = CryptoManager.getKeyBase64()
                     clipboardManager.setText(AnnotatedString(key))
-                    notificationMessage = "Pairing Key copied!"
+                    notificationMessage = "Pairing Key copied to clipboard!"
                 }
             )
         }
+    }
+}
 
-        // Dialog for adding a new note
-        if (showAddDialog) {
-            NoteEditDialog(
-                title = "New Note",
-                initialTitle = "",
-                initialContent = "",
-                onDismiss = { showAddDialog = false },
-                onConfirm = { t, c ->
-                    onAddNote(t, c)
-                    showAddDialog = false
-                    notificationMessage = "Note created!"
-                }
+@Composable
+fun NoteListItem(
+    note: Note,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    val dateFormat = remember { SimpleDateFormat("dd MMM, HH:mm", Locale.getDefault()) }
+    val formattedDate = remember(note.timestamp) { dateFormat.format(Date(note.timestamp)) }
+
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() },
+        shape = RoundedCornerShape(10.dp),
+        color = if (isSelected) Color(0xFFE3F2FD) else Color.White,
+        border = if (isSelected) androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF90CAF9)) else null,
+        tonalElevation = if (isSelected) 2.dp else 1.dp
+    ) {
+        Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = note.title.ifBlank { "Untitled" },
+                    fontSize = 14.sp,
+                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold,
+                    color = if (isSelected) Color(0xFF0D47A1) else Color(0xFF212121),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
+                )
+
+                Text(
+                    text = formattedDate,
+                    fontSize = 11.sp,
+                    color = Color.Gray
+                )
+            }
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            Text(
+                text = note.content.ifBlank { "No additional text" },
+                fontSize = 12.sp,
+                color = if (isSelected) Color(0xFF1565C0) else Color(0xFF757575),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
         }
+    }
+}
 
-        // Dialog for editing existing note
-        editingNote?.let { note ->
-            NoteEditDialog(
-                title = "Edit Note",
-                initialTitle = note.title,
-                initialContent = note.content,
-                onDismiss = { editingNote = null },
-                onConfirm = { t, c ->
-                    onEditNote(note.id, t, c)
-                    editingNote = null
-                    notificationMessage = "Note updated!"
+@Composable
+fun NoteEditorPane(
+    note: Note,
+    onUpdate: (String, String) -> Unit,
+    onCopy: () -> Unit,
+    onDelete: () -> Unit
+) {
+    var editTitle by remember(note.id) { mutableStateOf(note.title) }
+    var editContent by remember(note.id) { mutableStateOf(note.content) }
+    val dateFormat = remember { SimpleDateFormat("EEEE, dd MMMM yyyy HH:mm", Locale.getDefault()) }
+    val formattedDate = remember(note.timestamp) { dateFormat.format(Date(note.timestamp)) }
+
+    Column(modifier = Modifier.fillMaxSize()) {
+        // Editor Header Toolbar
+        Surface(
+            modifier = Modifier.fillMaxWidth().height(56.dp),
+            color = Color.White,
+            tonalElevation = 1.dp
+        ) {
+            Row(
+                modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = formattedDate,
+                    fontSize = 12.sp,
+                    color = Color.Gray,
+                    fontWeight = FontWeight.Medium
+                )
+
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(
+                        onClick = onCopy,
+                        shape = RoundedCornerShape(8.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                        modifier = Modifier.height(34.dp)
+                    ) {
+                        Text("Copy", fontSize = 12.sp)
+                    }
+
+                    Button(
+                        onClick = onDelete,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFFFFEBEE),
+                            contentColor = Color(0xFFC62828)
+                        ),
+                        shape = RoundedCornerShape(8.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                        modifier = Modifier.height(34.dp)
+                    ) {
+                        Text("Delete", fontSize = 12.sp)
+                    }
                 }
+            }
+        }
+
+        HorizontalDivider(color = Color(0xFFEEEEEE))
+
+        // Editor Body
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 28.dp, vertical = 20.dp)
+        ) {
+            // Note Title
+            TextField(
+                value = editTitle,
+                onValueChange = {
+                    editTitle = it
+                    onUpdate(it, editContent)
+                },
+                placeholder = { Text("Note Title", fontSize = 22.sp, fontWeight = FontWeight.Bold) },
+                modifier = Modifier.fillMaxWidth(),
+                textStyle = TextStyle(
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF212121)
+                ),
+                colors = TextFieldDefaults.colors(
+                    focusedContainerColor = Color.Transparent,
+                    unfocusedContainerColor = Color.Transparent,
+                    focusedIndicatorColor = Color.Transparent,
+                    unfocusedIndicatorColor = Color.Transparent
+                ),
+                singleLine = true
+            )
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Note Content
+            TextField(
+                value = editContent,
+                onValueChange = {
+                    editContent = it
+                    onUpdate(editTitle, it)
+                },
+                placeholder = { Text("Write your secure note here...", fontSize = 15.sp) },
+                modifier = Modifier.fillMaxSize(),
+                textStyle = TextStyle(
+                    fontSize = 15.sp,
+                    lineHeight = 24.sp,
+                    color = Color(0xFF37474F)
+                ),
+                colors = TextFieldDefaults.colors(
+                    focusedContainerColor = Color.Transparent,
+                    unfocusedContainerColor = Color.Transparent,
+                    focusedIndicatorColor = Color.Transparent,
+                    unfocusedIndicatorColor = Color.Transparent
+                )
             )
         }
     }
@@ -284,7 +513,7 @@ fun PairingDialog(
                     color = Color.White,
                     shadowElevation = 3.dp
                 ) {
-                    androidx.compose.foundation.Canvas(
+                    Canvas(
                         modifier = Modifier.fillMaxSize().padding(14.dp)
                     ) {
                         val cellW = size.width / qrMatrix.width
@@ -294,8 +523,8 @@ fun PairingDialog(
                                 if (qrMatrix.get(x, y)) {
                                     drawRect(
                                         color = Color.Black,
-                                        topLeft = androidx.compose.ui.geometry.Offset(x * cellW, y * cellH),
-                                        size = androidx.compose.ui.geometry.Size(cellW, cellH)
+                                        topLeft = Offset(x * cellW, y * cellH),
+                                        size = Size(cellW, cellH)
                                     )
                                 }
                             }
@@ -335,154 +564,6 @@ fun PairingDialog(
         confirmButton = {
             Button(onClick = onDismiss) {
                 Text("Done")
-            }
-        }
-    )
-}
-
-@Composable
-fun NoteCard(
-    note: Note,
-    onCopy: () -> Unit,
-    onEdit: () -> Unit,
-    onDelete: () -> Unit
-) {
-    val dateFormat = remember { SimpleDateFormat("dd MMM yyyy, HH:mm", Locale.getDefault()) }
-    val formattedDate = remember(note.timestamp) { dateFormat.format(Date(note.timestamp)) }
-
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Column(
-            modifier = Modifier.fillMaxWidth().padding(18.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = note.title.ifBlank { "Untitled Note" },
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f)
-                )
-
-                Text(
-                    text = formattedDate,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color.Gray
-                )
-            }
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            Text(
-                text = note.content,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 8,
-                overflow = TextOverflow.Ellipsis
-            )
-
-            Spacer(modifier = Modifier.height(14.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                OutlinedButton(
-                    onClick = onCopy,
-                    shape = RoundedCornerShape(8.dp),
-                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
-                ) {
-                    Text("Copy")
-                }
-
-                Spacer(modifier = Modifier.width(8.dp))
-
-                OutlinedButton(
-                    onClick = onEdit,
-                    shape = RoundedCornerShape(8.dp),
-                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
-                ) {
-                    Text("Edit")
-                }
-
-                Spacer(modifier = Modifier.width(8.dp))
-
-                Button(
-                    onClick = onDelete,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFFFFEBEE),
-                        contentColor = Color(0xFFC62828)
-                    ),
-                    shape = RoundedCornerShape(8.dp),
-                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
-                ) {
-                    Text("Delete")
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun NoteEditDialog(
-    title: String,
-    initialTitle: String,
-    initialContent: String,
-    onDismiss: () -> Unit,
-    onConfirm: (String, String) -> Unit
-) {
-    var noteTitle by remember { mutableStateOf(initialTitle) }
-    var noteContent by remember { mutableStateOf(initialContent) }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(text = title, fontWeight = FontWeight.Bold) },
-        text = {
-            Column(
-                modifier = Modifier.fillMaxWidth().widthIn(min = 450.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                OutlinedTextField(
-                    value = noteTitle,
-                    onValueChange = { noteTitle = it },
-                    label = { Text("Title") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
-                )
-
-                OutlinedTextField(
-                    value = noteContent,
-                    onValueChange = { noteContent = it },
-                    label = { Text("Content") },
-                    modifier = Modifier.fillMaxWidth().height(180.dp),
-                    maxLines = 10
-                )
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = {
-                    if (noteTitle.isNotBlank() || noteContent.isNotBlank()) {
-                        onConfirm(noteTitle.trim(), noteContent.trim())
-                    }
-                }
-            ) {
-                Text("Save")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel")
             }
         }
     )

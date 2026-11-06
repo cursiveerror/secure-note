@@ -91,7 +91,19 @@ class SyncServer(
                                     put("timestamp", n.timestamp)
                                 })
                             }
-                            val response = array.toString(2).toByteArray(Charsets.UTF_8)
+                            val rawJson = array.toString()
+                            val isRawRequested = exchange.requestURI.path.equals("/raw", ignoreCase = true)
+                            val responseText = if (isRawRequested) {
+                                array.toString(2)
+                            } else {
+                                try {
+                                    val (iv, data) = CryptoManager.encrypt(rawJson)
+                                    """{"iv":"$iv","data":"$data"}"""
+                                } catch (_: Exception) {
+                                    rawJson
+                                }
+                            }
+                            val response = responseText.toByteArray(Charsets.UTF_8)
                             exchange.responseHeaders.set("Content-Type", "application/json; charset=utf-8")
                             exchange.sendResponseHeaders(200, response.size.toLong())
                             exchange.responseBody.use { it.write(response) }
