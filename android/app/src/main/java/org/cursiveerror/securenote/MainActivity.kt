@@ -8,20 +8,29 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -30,7 +39,7 @@ import com.google.mlkit.vision.codescanner.GmsBarcodeScanning
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import org.cursiveerror.securenote.ui.theme.SecureNoteTheme
+import org.cursiveerror.securenote.ui.theme.*
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
@@ -64,7 +73,6 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NoteScreen() {
     val context = LocalContext.current
@@ -93,77 +101,133 @@ fun NoteScreen() {
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        text = "SecureNote",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 19.sp
-                    )
-                },
-                actions = {
-                    OutlinedButton(
-                        onClick = { showPairingDialog = true },
-                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
-                        modifier = Modifier.height(34.dp)
+            // Architectural Header Rail
+            Surface(
+                color = Color.White,
+                modifier = Modifier.fillMaxWidth().statusBarsPadding()
+            ) {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            text = if (isPaired) "AES-256" else "Pair PC",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = if (isPaired) Color(0xFF2E7D32) else MaterialTheme.colorScheme.primary
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.width(6.dp))
-
-                    FilledTonalButton(
-                        onClick = {
-                            if (isSyncing) return@FilledTonalButton
-                            isSyncing = true
-                            statusMessage = "Searching for PC in local Wi-Fi..."
-
-                            scope.launch {
-                                val serverIp = discoverServerIp(context)
-                                if (serverIp == null) {
-                                    statusMessage = "PC not found. Make sure both devices are on the same Wi-Fi."
-                                    isSyncing = false
-                                    return@launch
-                                }
-
-                                statusMessage = "Found PC at $serverIp. Syncing..."
-                                val (mergedList, syncMsg) = syncNotesWithServer(context, notes, serverIp)
-                                saveLocalNotes(context, mergedList)
-                                notes = mergedList
-                                isSyncing = false
-                                statusMessage = syncMsg
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            // Geometric logo mark
+                            Box(
+                                modifier = Modifier
+                                    .size(20.dp)
+                                    .background(ColorAccent, RoundedCornerShape(3.dp)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "S",
+                                    color = Color.White,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Black,
+                                    fontFamily = FontFamily.Monospace
+                                )
                             }
-                        },
-                        enabled = !isSyncing,
-                        modifier = Modifier.height(34.dp),
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 2.dp)
-                    ) {
-                        Text(
-                            text = if (isSyncing) "Syncing..." else "Sync",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.SemiBold
-                        )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "SECURENOTE",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 1.2.sp,
+                                color = ColorTextPrimary
+                            )
+                        }
+
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            // Pair button
+                            Surface(
+                                modifier = Modifier
+                                    .clickable { showPairingDialog = true }
+                                    .border(1.dp, if (isPaired) Color(0xFF2E7D32) else ColorBorder, RoundedCornerShape(4.dp)),
+                                color = if (isPaired) Color(0xFFE8F5E9) else Color.White,
+                                shape = RoundedCornerShape(4.dp)
+                            ) {
+                                Text(
+                                    text = if (isPaired) "AES-256" else "PAIR",
+                                    fontSize = 10.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (isPaired) Color(0xFF2E7D32) else ColorAccent,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                )
+                            }
+
+                            // Sync button
+                            Surface(
+                                modifier = Modifier
+                                    .clickable(enabled = !isSyncing) {
+                                        if (isSyncing) return@clickable
+                                        isSyncing = true
+                                        statusMessage = "Searching for PC in local Wi-Fi..."
+
+                                        scope.launch {
+                                            val serverIp = discoverServerIp(context)
+                                            if (serverIp == null) {
+                                                statusMessage = "PC not found on local Wi-Fi"
+                                                isSyncing = false
+                                                return@launch
+                                            }
+
+                                            statusMessage = "Syncing with $serverIp..."
+                                            val (mergedList, syncMsg) = syncNotesWithServer(context, notes, serverIp)
+                                            saveLocalNotes(context, mergedList)
+                                            notes = mergedList
+                                            isSyncing = false
+                                            statusMessage = syncMsg
+                                        }
+                                    },
+                                shape = RoundedCornerShape(4.dp),
+                                color = ColorAccent
+                            ) {
+                                Text(
+                                    text = if (isSyncing) "SYNCING..." else "SYNC",
+                                    fontSize = 10.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White,
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                                )
+                            }
+                        }
                     }
 
-                    Spacer(modifier = Modifier.width(6.dp))
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface
-                )
-            )
+                    HorizontalDivider(color = ColorBorder, thickness = 1.dp)
+                }
+            }
         },
         floatingActionButton = {
-            FloatingActionButton(
-                onClick = { showCreateDialog = true },
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary
+            // Sleek architectural pill button
+            Surface(
+                modifier = Modifier
+                    .clickable { showCreateDialog = true }
+                    .padding(bottom = 8.dp),
+                shape = RoundedCornerShape(6.dp),
+                color = ColorAccent,
+                shadowElevation = 6.dp
             ) {
-                Text("+", fontSize = 26.sp, fontWeight = FontWeight.Normal)
+                Row(
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "+ NEW NOTE",
+                        fontSize = 12.sp,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        letterSpacing = 0.8.sp
+                    )
+                }
             }
         }
     ) { innerPadding ->
@@ -171,47 +235,74 @@ fun NoteScreen() {
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .padding(horizontal = 16.dp, vertical = 6.dp),
+                .background(Color(0xFFF7F9FB))
+                .padding(horizontal = 14.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             // Status bar message banner
             AnimatedVisibility(visible = statusMessage.isNotEmpty()) {
                 Surface(
-                    color = MaterialTheme.colorScheme.primaryContainer,
-                    shape = RoundedCornerShape(8.dp),
+                    color = Color(0xFFECEFF2),
+                    shape = RoundedCornerShape(4.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, ColorBorder),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Row(
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Text(
-                            text = statusMessage,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            text = statusMessage.uppercase(Locale.getDefault()),
+                            fontSize = 10.sp,
+                            fontFamily = FontFamily.Monospace,
+                            color = ColorTextPrimary,
                             modifier = Modifier.weight(1f)
                         )
-                        TextButton(
-                            onClick = { statusMessage = "" },
-                            contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp),
-                            modifier = Modifier.height(28.dp)
-                        ) {
-                            Text("Dismiss", fontSize = 11.sp)
-                        }
+                        Text(
+                            text = "DISMISS",
+                            fontSize = 9.sp,
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.Bold,
+                            color = ColorAccent,
+                            modifier = Modifier
+                                .clickable { statusMessage = "" }
+                                .padding(start = 8.dp)
+                        )
                     }
                 }
             }
 
-            // Search bar
-            OutlinedTextField(
+            // Custom Filter Field (zero clipping, clean box)
+            BasicTextField(
                 value = searchQuery,
                 onValueChange = { searchQuery = it },
-                placeholder = { Text("Search notes...", fontSize = 13.sp) },
-                modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
-                shape = RoundedCornerShape(10.dp),
-                textStyle = LocalTextStyle.current.copy(fontSize = 13.sp)
+                textStyle = TextStyle(
+                    fontSize = 13.sp,
+                    color = ColorTextPrimary
+                ),
+                cursorBrush = SolidColor(ColorAccent),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color.White, RoundedCornerShape(4.dp))
+                    .border(1.dp, ColorBorder, RoundedCornerShape(4.dp))
+                    .padding(horizontal = 10.dp, vertical = 8.dp),
+                decorationBox = { innerTextField ->
+                    Box(
+                        contentAlignment = Alignment.CenterStart,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        if (searchQuery.isEmpty()) {
+                            Text(
+                                text = "Filter notes...",
+                                fontSize = 13.sp,
+                                color = ColorTextPlaceholder
+                            )
+                        }
+                        innerTextField()
+                    }
+                }
             )
 
             // Notes list or empty state
@@ -222,39 +313,40 @@ fun NoteScreen() {
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(
-                            text = if (searchQuery.isNotBlank()) "No notes match search" else "No notes yet",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Medium,
-                            color = Color.Gray
+                            text = if (searchQuery.isNotBlank()) "NO MATCHES" else "NO NOTES",
+                            fontSize = 12.sp,
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.Bold,
+                            color = ColorTextMuted
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = if (searchQuery.isNotBlank()) "Try another keyword" else "Tap '+' to create your first note.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = Color.DarkGray
+                            text = if (searchQuery.isNotBlank()) "Try different query." else "Tap '+ NEW NOTE' to create.",
+                            fontSize = 12.sp,
+                            color = ColorTextPlaceholder
                         )
                     }
                 }
             } else {
                 LazyColumn(
                     modifier = Modifier.weight(1f).fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                    contentPadding = PaddingValues(bottom = 88.dp)
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                    contentPadding = PaddingValues(bottom = 72.dp)
                 ) {
                     items(filteredNotes, key = { it.id }) { note ->
-                        NoteCardItem(
+                        DistinctMobileCard(
                             note = note,
                             onClick = { selectedNote = note },
                             onCopy = {
                                 val textToCopy = if (note.title.isNotBlank()) "${note.title}\n\n${note.content}" else note.content
                                 clipboardManager.setText(AnnotatedString(textToCopy))
-                                Toast.makeText(context, "Copied to clipboard", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, "Copied", Toast.LENGTH_SHORT).show()
                             },
                             onDelete = {
                                 val updated = notes.filter { it.id != note.id }
                                 saveLocalNotes(context, updated)
                                 notes = updated
-                                statusMessage = "Note deleted"
+                                statusMessage = "Deleted note"
                             }
                         )
                     }
@@ -263,35 +355,66 @@ fun NoteScreen() {
         }
     }
 
-    // Dialog for creating a new note
+    // Modal: New Note
     if (showCreateDialog) {
         var newTitle by remember { mutableStateOf("") }
         var newContent by remember { mutableStateOf("") }
 
         AlertDialog(
             onDismissRequest = { showCreateDialog = false },
-            title = { Text("New Note", fontWeight = FontWeight.Bold) },
+            title = {
+                Text(
+                    text = "NEW ENTRY",
+                    fontSize = 14.sp,
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.Bold,
+                    color = ColorTextPrimary
+                )
+            },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    OutlinedTextField(
+                    BasicTextField(
                         value = newTitle,
                         onValueChange = { newTitle = it },
-                        label = { Text("Title") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true
+                        singleLine = true,
+                        textStyle = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Bold, color = ColorTextPrimary),
+                        cursorBrush = SolidColor(ColorAccent),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(Color(0xFFF7F9FB), RoundedCornerShape(4.dp))
+                            .border(1.dp, ColorBorder, RoundedCornerShape(4.dp))
+                            .padding(10.dp),
+                        decorationBox = { inner ->
+                            Box {
+                                if (newTitle.isEmpty()) Text("Title", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = ColorTextPlaceholder)
+                                inner()
+                            }
+                        }
                     )
-                    OutlinedTextField(
+
+                    BasicTextField(
                         value = newContent,
                         onValueChange = { newContent = it },
-                        label = { Text("Content") },
-                        modifier = Modifier.fillMaxWidth().height(150.dp),
-                        maxLines = 8
+                        textStyle = TextStyle(fontSize = 14.sp, color = ColorTextPrimary, lineHeight = 20.sp),
+                        cursorBrush = SolidColor(ColorAccent),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(140.dp)
+                            .background(Color(0xFFF7F9FB), RoundedCornerShape(4.dp))
+                            .border(1.dp, ColorBorder, RoundedCornerShape(4.dp))
+                            .padding(10.dp),
+                        decorationBox = { inner ->
+                            Box {
+                                if (newContent.isEmpty()) Text("Content...", fontSize = 14.sp, color = ColorTextPlaceholder)
+                                inner()
+                            }
+                        }
                     )
                 }
             },
             confirmButton = {
-                Button(
-                    onClick = {
+                Surface(
+                    modifier = Modifier.clickable {
                         if (newTitle.isNotBlank() || newContent.isNotBlank()) {
                             val newNote = Note(
                                 title = newTitle.trim(),
@@ -303,50 +426,97 @@ fun NoteScreen() {
                             saveLocalNotes(context, updated)
                             notes = updated
                             showCreateDialog = false
-                            statusMessage = "Note saved locally"
+                            statusMessage = "Saved locally"
                         }
-                    }
+                    },
+                    shape = RoundedCornerShape(3.dp),
+                    color = ColorAccent
                 ) {
-                    Text("Save")
+                    Text(
+                        text = "SAVE",
+                        fontSize = 11.sp,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                    )
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showCreateDialog = false }) {
-                    Text("Cancel")
-                }
+                Text(
+                    text = "CANCEL",
+                    fontSize = 11.sp,
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.Medium,
+                    color = ColorTextMuted,
+                    modifier = Modifier
+                        .clickable { showCreateDialog = false }
+                        .padding(horizontal = 10.dp, vertical = 6.dp)
+                )
             }
         )
     }
 
-    // Dialog for viewing and editing note
+    // Modal: Edit Note
     selectedNote?.let { currentNote ->
         var editTitle by remember(currentNote) { mutableStateOf(currentNote.title) }
         var editContent by remember(currentNote) { mutableStateOf(currentNote.content) }
 
         AlertDialog(
             onDismissRequest = { selectedNote = null },
-            title = { Text("Edit Note", fontWeight = FontWeight.Bold) },
+            title = {
+                Text(
+                    text = "EDIT ENTRY",
+                    fontSize = 14.sp,
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.Bold,
+                    color = ColorTextPrimary
+                )
+            },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    OutlinedTextField(
+                    BasicTextField(
                         value = editTitle,
                         onValueChange = { editTitle = it },
-                        label = { Text("Title") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true
+                        singleLine = true,
+                        textStyle = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Bold, color = ColorTextPrimary),
+                        cursorBrush = SolidColor(ColorAccent),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(Color(0xFFF7F9FB), RoundedCornerShape(4.dp))
+                            .border(1.dp, ColorBorder, RoundedCornerShape(4.dp))
+                            .padding(10.dp),
+                        decorationBox = { inner ->
+                            Box {
+                                if (editTitle.isEmpty()) Text("Title", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = ColorTextPlaceholder)
+                                inner()
+                            }
+                        }
                     )
-                    OutlinedTextField(
+
+                    BasicTextField(
                         value = editContent,
                         onValueChange = { editContent = it },
-                        label = { Text("Content") },
-                        modifier = Modifier.fillMaxWidth().height(150.dp),
-                        maxLines = 8
+                        textStyle = TextStyle(fontSize = 14.sp, color = ColorTextPrimary, lineHeight = 20.sp),
+                        cursorBrush = SolidColor(ColorAccent),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(140.dp)
+                            .background(Color(0xFFF7F9FB), RoundedCornerShape(4.dp))
+                            .border(1.dp, ColorBorder, RoundedCornerShape(4.dp))
+                            .padding(10.dp),
+                        decorationBox = { inner ->
+                            Box {
+                                if (editContent.isEmpty()) Text("Content...", fontSize = 14.sp, color = ColorTextPlaceholder)
+                                inner()
+                            }
+                        }
                     )
                 }
             },
             confirmButton = {
-                Button(
-                    onClick = {
+                Surface(
+                    modifier = Modifier.clickable {
                         val updated = notes.map {
                             if (it.id == currentNote.id) {
                                 it.copy(
@@ -360,113 +530,184 @@ fun NoteScreen() {
                         saveLocalNotes(context, updated)
                         notes = updated
                         selectedNote = null
-                        statusMessage = "Note updated locally"
-                    }
+                        statusMessage = "Updated locally"
+                    },
+                    shape = RoundedCornerShape(3.dp),
+                    color = ColorAccent
                 ) {
-                    Text("Save")
+                    Text(
+                        text = "SAVE",
+                        fontSize = 11.sp,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                    )
                 }
             },
             dismissButton = {
-                TextButton(onClick = { selectedNote = null }) {
-                    Text("Cancel")
-                }
+                Text(
+                    text = "CANCEL",
+                    fontSize = 11.sp,
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.Medium,
+                    color = ColorTextMuted,
+                    modifier = Modifier
+                        .clickable { selectedNote = null }
+                        .padding(horizontal = 10.dp, vertical = 6.dp)
+                )
             }
         )
     }
 
-    // Dialog for pairing with PC (QR scanner + manual paste)
+    // Modal: Device Pairing
     if (showPairingDialog) {
         var inputKey by remember { mutableStateOf(CryptoManager.getSavedKey(context) ?: "") }
 
         AlertDialog(
             onDismissRequest = { showPairingDialog = false },
-            title = { Text("Device Pairing", fontWeight = FontWeight.Bold) },
+            title = {
+                Text(
+                    text = "DEVICE PAIRING // AES-256",
+                    fontSize = 13.sp,
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.Bold,
+                    color = ColorTextPrimary
+                )
+            },
             text = {
                 Column(
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     Text(
-                        text = "Scan the QR code displayed in the PC app ('Pair Device') or enter the key manually below:",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color.DarkGray
+                        text = "Scan QR from PC desktop window or paste symmetric key below.",
+                        fontSize = 12.sp,
+                        color = ColorTextMuted
                     )
 
-                    Button(
-                        onClick = {
-                            try {
-                                val scanner = GmsBarcodeScanning.getClient(context)
-                                scanner.startScan()
-                                    .addOnSuccessListener { barcode ->
-                                        val rawValue = barcode.rawValue ?: ""
-                                        if (rawValue.isNotBlank()) {
-                                            CryptoManager.saveKey(context, rawValue)
-                                            isPaired = true
-                                            showPairingDialog = false
-                                            statusMessage = "Paired with PC via QR Code. AES-256 active."
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                try {
+                                    val scanner = GmsBarcodeScanning.getClient(context)
+                                    scanner.startScan()
+                                        .addOnSuccessListener { barcode ->
+                                            val rawValue = barcode.rawValue ?: ""
+                                            if (rawValue.isNotBlank()) {
+                                                CryptoManager.saveKey(context, rawValue)
+                                                isPaired = true
+                                                showPairingDialog = false
+                                                statusMessage = "Paired with PC via QR Code"
+                                            }
                                         }
-                                    }
-                                    .addOnFailureListener { e ->
-                                        Toast.makeText(context, "Scanner: ${e.message}", Toast.LENGTH_SHORT).show()
-                                    }
-                            } catch (e: Exception) {
-                                Toast.makeText(context, "Scanner error: ${e.message}", Toast.LENGTH_SHORT).show()
-                            }
-                        },
-                        modifier = Modifier.fillMaxWidth()
+                                        .addOnFailureListener { e ->
+                                            Toast.makeText(context, "Scan: ${e.message}", Toast.LENGTH_SHORT).show()
+                                        }
+                                } catch (e: Exception) {
+                                    Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                        shape = RoundedCornerShape(4.dp),
+                        color = ColorAccent
                     ) {
-                        Text("Scan QR Code")
+                        Text(
+                            text = "SCAN QR CODE",
+                            fontSize = 11.sp,
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(vertical = 10.dp)
+                        )
                     }
 
-                    OutlinedTextField(
+                    BasicTextField(
                         value = inputKey,
                         onValueChange = { inputKey = it },
-                        label = { Text("Pairing Key") },
-                        modifier = Modifier.fillMaxWidth(),
-                        minLines = 2,
-                        maxLines = 3
+                        textStyle = TextStyle(
+                            fontSize = 12.sp,
+                            fontFamily = FontFamily.Monospace,
+                            color = ColorTextPrimary
+                        ),
+                        cursorBrush = SolidColor(ColorAccent),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(70.dp)
+                            .background(Color(0xFFF7F9FB), RoundedCornerShape(4.dp))
+                            .border(1.dp, ColorBorder, RoundedCornerShape(4.dp))
+                            .padding(8.dp),
+                        decorationBox = { inner ->
+                            Box {
+                                if (inputKey.isEmpty()) Text("Paste Base64 secret key...", fontSize = 11.sp, color = ColorTextPlaceholder)
+                                inner()
+                            }
+                        }
                     )
 
                     if (isPaired) {
                         Text(
-                            text = "Status: AES-256-GCM Encrypted",
+                            text = "STATUS // CIPHER ACTIVE",
                             color = Color(0xFF2E7D32),
-                            fontWeight = FontWeight.Medium,
-                            style = MaterialTheme.typography.bodySmall
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 10.sp,
+                            fontFamily = FontFamily.Monospace
                         )
                     }
                 }
             },
             confirmButton = {
-                Button(
-                    onClick = {
+                Surface(
+                    modifier = Modifier.clickable {
                         if (inputKey.isNotBlank()) {
                             CryptoManager.saveKey(context, inputKey)
                             isPaired = true
                             showPairingDialog = false
-                            statusMessage = "Paired with PC. AES-256 active."
+                            statusMessage = "Paired with PC"
                         }
-                    }
+                    },
+                    shape = RoundedCornerShape(3.dp),
+                    color = ColorAccent
                 ) {
-                    Text("Save")
+                    Text(
+                        text = "SAVE",
+                        fontSize = 11.sp,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                    )
                 }
             },
             dismissButton = {
                 if (isPaired) {
-                    TextButton(
-                        onClick = {
-                            CryptoManager.clearKey(context)
-                            isPaired = false
-                            inputKey = ""
-                            statusMessage = "Unpaired from PC"
-                        }
-                    ) {
-                        Text("Unpair", color = MaterialTheme.colorScheme.error)
-                    }
+                    Text(
+                        text = "UNPAIR",
+                        fontSize = 11.sp,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFFC62828),
+                        modifier = Modifier
+                            .clickable {
+                                CryptoManager.clearKey(context)
+                                isPaired = false
+                                inputKey = ""
+                                statusMessage = "Unpaired"
+                            }
+                            .padding(horizontal = 10.dp, vertical = 6.dp)
+                    )
                 } else {
-                    TextButton(onClick = { showPairingDialog = false }) {
-                        Text("Cancel")
-                    }
+                    Text(
+                        text = "CANCEL",
+                        fontSize = 11.sp,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Medium,
+                        color = ColorTextMuted,
+                        modifier = Modifier
+                            .clickable { showPairingDialog = false }
+                            .padding(horizontal = 10.dp, vertical = 6.dp)
+                    )
                 }
             }
         )
@@ -474,7 +715,7 @@ fun NoteScreen() {
 }
 
 @Composable
-fun NoteCardItem(
+fun DistinctMobileCard(
     note: Note,
     onClick: () -> Unit,
     onCopy: () -> Unit,
@@ -483,83 +724,101 @@ fun NoteCardItem(
     val dateFormat = remember { SimpleDateFormat("dd MMM, HH:mm", Locale.getDefault()) }
     val formattedDate = remember(note.timestamp) { dateFormat.format(Date(note.timestamp)) }
 
-    Card(
+    Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onClick() },
-        shape = RoundedCornerShape(10.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+            .clickable { onClick() }
+            .border(1.dp, ColorBorder, RoundedCornerShape(4.dp)),
+        shape = RoundedCornerShape(4.dp),
+        color = Color.White
     ) {
-        Column(modifier = Modifier.fillMaxWidth().padding(12.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = note.title.ifBlank { "Untitled Note" },
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f)
-                )
+        Row(modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
+            // Left 3px indicator line (Green for Synced, Cerulean for Local)
+            Box(
+                modifier = Modifier
+                    .width(3.dp)
+                    .fillMaxHeight()
+                    .background(if (note.isSynced) Color(0xFF2E7D32) else ColorAccent)
+            )
 
-                Surface(
-                    color = if (note.isSynced) Color(0xFFE8F5E9) else Color(0xFFFFF3E0),
-                    shape = RoundedCornerShape(4.dp)
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(horizontal = 12.dp, vertical = 10.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = if (note.isSynced) "Synced" else "Local",
-                        color = if (note.isSynced) Color(0xFF2E7D32) else Color(0xFFE65100),
+                        text = note.title.ifBlank { "Untitled" },
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = ColorTextPrimary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
+                    )
+
+                    Text(
+                        text = formattedDate,
                         fontSize = 10.sp,
-                        fontWeight = FontWeight.Medium,
-                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        fontFamily = FontFamily.Monospace,
+                        color = ColorTextMuted
                     )
                 }
+
+                Spacer(modifier = Modifier.height(3.dp))
+
+                Text(
+                    text = note.content.ifBlank { "(Empty)" },
+                    fontSize = 12.sp,
+                    color = ColorTextMuted,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
             }
 
-            Spacer(modifier = Modifier.height(3.dp))
-
-            Text(
-                text = formattedDate,
-                style = MaterialTheme.typography.bodySmall,
-                color = Color.Gray
-            )
-
-            Spacer(modifier = Modifier.height(6.dp))
-
-            Text(
-                text = note.content.ifBlank { "Empty note" },
-                style = MaterialTheme.typography.bodyMedium,
-                maxLines = 3,
-                overflow = TextOverflow.Ellipsis
-            )
-
-            Spacer(modifier = Modifier.height(6.dp))
-
+            // Quick Copy and Delete buttons
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End,
-                verticalAlignment = Alignment.CenterVertically
+                modifier = Modifier
+                    .align(Alignment.CenterVertically)
+                    .padding(end = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                TextButton(
-                    onClick = onCopy,
-                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
-                    modifier = Modifier.height(30.dp)
+                Surface(
+                    modifier = Modifier
+                        .clickable { onCopy() }
+                        .border(1.dp, ColorBorder, RoundedCornerShape(3.dp)),
+                    shape = RoundedCornerShape(3.dp),
+                    color = Color.White
                 ) {
-                    Text("Copy", fontSize = 12.sp)
+                    Text(
+                        text = "COPY",
+                        fontSize = 9.sp,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold,
+                        color = ColorTextPrimary,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp)
+                    )
                 }
 
-                TextButton(
-                    onClick = onDelete,
-                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
-                    modifier = Modifier.height(30.dp),
-                    colors = ButtonDefaults.textButtonColors(
-                        contentColor = MaterialTheme.colorScheme.error
-                    )
+                Surface(
+                    modifier = Modifier
+                        .clickable { onDelete() }
+                        .border(1.dp, Color(0xFFFFCDD2), RoundedCornerShape(3.dp)),
+                    shape = RoundedCornerShape(3.dp),
+                    color = Color(0xFFFFF8F8)
                 ) {
-                    Text("Delete", fontSize = 12.sp)
+                    Text(
+                        text = "DEL",
+                        fontSize = 9.sp,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFFC62828),
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp)
+                    )
                 }
             }
         }
@@ -612,7 +871,6 @@ suspend fun syncNotesWithServer(context: Context, currentNotes: List<Note>, serv
     return withContext(Dispatchers.IO) {
         var pushedCount = 0
 
-        // Phase 1: Push unsynced notes to PC
         val afterPushList = currentNotes.map { note ->
             if (!note.isSynced) {
                 val success = sendNoteToHost(note.id, note.title, note.content, note.timestamp, serverIp, context)
@@ -627,14 +885,12 @@ suspend fun syncNotesWithServer(context: Context, currentNotes: List<Note>, serv
             }
         }
 
-        // Phase 2: Pull all notes from PC
         val (pulledNotes, pullSuccess) = fetchNotesFromHost(serverIp, context)
         if (!pullSuccess) {
             val msg = if (pushedCount > 0) "Sent $pushedCount note(s) to PC." else "Could not reach PC server."
             return@withContext Pair(afterPushList, msg)
         }
 
-        // Phase 3: Merge notes by timestamp
         val noteMap = afterPushList.associateBy { it.id }.toMutableMap()
         var newFromPcCount = 0
 
@@ -651,7 +907,7 @@ suspend fun syncNotesWithServer(context: Context, currentNotes: List<Note>, serv
         }
 
         val mergedList = noteMap.values.sortedByDescending { it.timestamp }
-        val finalMsg = "Sync complete. Sent $pushedCount, received $newFromPcCount from PC."
+        val finalMsg = "Synced. Sent $pushedCount, received $newFromPcCount from PC."
         Pair(mergedList, finalMsg)
     }
 }
