@@ -11,7 +11,9 @@
   <img src="https://img.shields.io/badge/Android-3DDC84?style=for-the-badge&logo=android&logoColor=white" alt="Android" />
   <img src="https://img.shields.io/badge/Windows-0078D6?style=for-the-badge&logo=windows&logoColor=white" alt="Windows" />
 </p>
+
 ## Features
+
 - Private: All notes stay on your device.
 - Wi-Fi Sync: Sync notes between Android and Windows over your local network.
 - Easy Connect: Scan a QR code to link devices.
