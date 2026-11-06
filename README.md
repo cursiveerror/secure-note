@@ -1,7 +1,6 @@
 <p align="center">
   <img src="assets/securenote_githubicon.svg" width="120" alt="SecureNote Logo" />
 </p>
-
 <h1 align="center">SecureNote</h1>
 
 <p align="center">
@@ -17,7 +16,6 @@
 
 ## Features
 
-- **Private:** All notes stay on your device.
-- **Wi-Fi Sync:** Sync notes between Android and Windows over your local network.
-- **Easy Connect:** Scan a QR code to link devices.
-- **No Cloud:** Works completely offline without accounts or third-party servers.
+- Private: All notes stay on your device.
+- Wi-Fi Sync: Sync notes between Android and Windows over your local network.
+- Easy Connect: Scan a QR code to link devices.
