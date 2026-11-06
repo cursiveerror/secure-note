@@ -5,7 +5,7 @@
 <h1 align="center">SecureNote</h1>
 
 <p align="center">
-  Simple notes app with local Wi-Fi sync between phone and PC.
+  Simple notes app with local Wi-Fi sync between phone and PC
 </p>
 
 <p align="center">
