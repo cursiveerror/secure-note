@@ -24,7 +24,7 @@ compose.desktop {
 
         nativeDistributions {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb, TargetFormat.Exe)
-            packageName = "org.cursiveerror.securenote"
+            packageName = "SecureNote Desktop"
             packageVersion = "1.0.0"
             description = "SecureNote Desktop LAN Sync"
             copyright = "© 2026 CursiveError"
